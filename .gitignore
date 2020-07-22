@@ -1,0 +1,11 @@
+.DS_Store
+.ipynb_checkpoints
+*.zip
+output
+result.csv
+*.pyc
+*.csv
+*.tmp
+*.err
+database.yml
+
