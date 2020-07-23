@@ -9,6 +9,7 @@ import os
 import importlib
 import uuid
 import subprocess
+import requests
 
 
 # vectorized and adapted from:
@@ -210,7 +211,33 @@ class dataset:
 
 
 class sql_dataset(dataset):
+    def ping(self, max_retries=3, delay=5, verbose=False):
+        success = False
+        retries = 0
+        while (not success) and retries < max_retries:
+            try:
+                if verbose:
+                    print('Pinging database... Try %s/%s' % (retries + 1, max_retries))
+                conn = pyodbc.connect(**self.config['conn'])
+                result = pd.read_sql('SELECT 1;', conn).values.item()
+                success = (result == 1)
+            except:
+                retries += 1
+                if verbose:
+                    print('Error:', sys.exc_info()[0])
+                    print('Delaying %s seconds before retrying.' % delay)
+                time.sleep(delay)
+        if verbose:
+            if success:
+                print('Connected.')
+            else:
+                print('Failed to connect.')
+        return success
+
     def query(self, chunksize=100, pbar=True):
+        if not self.ping():
+            raise requests.ConnectionError('Failed to connect to database.')
+
         conn = pyodbc.connect(**self.config['conn'])
         if 'get_row_count' in self.config['query']:
             row_count = pd.read_sql(self.config['query']['get_row_count'], conn).loc[0].values[0]
@@ -232,6 +259,9 @@ class sql_dataset(dataset):
         return self
     
     def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
+        if not self.ping(verbose=verbose):
+            raise requests.ConnectionError('Failed to connect to database.')
+
         host_config_args = [
             '-S', self.config['conn']['server'],
             '-d', self.config['conn']['database'],
