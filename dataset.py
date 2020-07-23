@@ -226,8 +226,8 @@ class sql_dataset(dataset):
             except:
                 retries += 1
                 if verbose:
-                    print('Error:', sys.exc_info()[0])
-                    print('Delaying %s seconds before retrying.' % delay)
+                    print('- Error:', sys.exc_info()[1])
+                    print('- Retry in %s seconds.' % delay)
                 time.sleep(delay)
         if verbose:
             if success:
