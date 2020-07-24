@@ -243,6 +243,7 @@ class sql_dataset(dataset):
                     print('- Error:', sys.exc_info()[1])
                     print('- Retry in %s seconds.' % delay)
                 time.sleep(delay)
+                delay *= 2 # exponential decay for retry delay
         if verbose:
             if success:
                 print('Connected.')
@@ -250,21 +251,32 @@ class sql_dataset(dataset):
                 print('Failed to connect.')
         return success
 
-    def query(self, chunksize=100, pbar=True):
+    def query(self, get_data=None, get_row_count=None, chunksize=100, pbar=True):
         if not self.ping():
             raise requests.ConnectionError('Failed to connect to database.')
 
-        conn = pyodbc.connect(**self.config['conn'])
-        if 'get_row_count' in self.config['query']:
-            row_count = pd.read_sql(self.config['query']['get_row_count'], conn).loc[0].values[0]
-            chunk_count = np.ceil(row_count / chunksize).astype(int)
-        else:
-            if pbar:
-                warnings.warn('Progress bar is disabled when get_row_count query is not specified in the config file.')
-                pbar = False
+        if get_data is None:
+            # left part is evaluated before the right part
+            if ('query' in self.config) and ('get_data' in self.config['query']):
+                get_data = self.config['query']['get_data']
+            else:
+                raise ValueError('`get_data` SQL query must be specified as an argument or in the config file.')
         
-        chunks = pd.read_sql(self.config['query']['get_data'], conn, chunksize=chunksize)
+        if get_row_count is None:
+            # left part is evaluated before the right part
+            if ('query' in self.config) and ('get_row_count' in self.config['query']):
+                get_row_count = self.config['query']['get_row_count']
+            else:
+                if pbar:
+                    warnings.warn('Progress bar is disabled when get_row_count query is not specified. Specify pbar=False to disable the warning.')
+                    pbar = False
+        
+        conn = pyodbc.connect(**self.config['conn'])
+        
+        chunks = pd.read_sql(get_data, conn, chunksize=chunksize)
         if pbar:
+            row_count = pd.read_sql(get_row_count, conn).values.item()
+            chunk_count = np.ceil(row_count / chunksize).astype(int)
             chunks = tqdm(chunks, total=chunk_count)
 
         data = []
