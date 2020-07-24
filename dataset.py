@@ -251,7 +251,7 @@ class sql_dataset(dataset):
                 print('Failed to connect.')
         return success
 
-    def query(self, get_data=None, get_row_count=None, chunksize=100, pbar=True):
+    def query(self, get_data=None, get_row_count=None, chunksize=100):
         if not self.ping():
             raise requests.ConnectionError('Failed to connect to database.')
 
@@ -266,15 +266,11 @@ class sql_dataset(dataset):
             # left part is evaluated before the right part
             if ('query' in self.config) and ('get_row_count' in self.config['query']):
                 get_row_count = self.config['query']['get_row_count']
-            else:
-                if pbar:
-                    warnings.warn('Progress bar is disabled when get_row_count query is not specified. Specify pbar=False to disable the warning.')
-                    pbar = False
         
         conn = pyodbc.connect(**self.config['conn'])
         
         chunks = pd.read_sql(get_data, conn, chunksize=chunksize)
-        if pbar:
+        if not (get_row_count is None):
             row_count = pd.read_sql(get_row_count, conn).values.item()
             chunk_count = np.ceil(row_count / chunksize).astype(int)
             chunks = tqdm(chunks, total=chunk_count)
