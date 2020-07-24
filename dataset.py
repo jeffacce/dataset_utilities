@@ -18,25 +18,22 @@ import time
 # https://stackoverflow.com/questions/3018758/determine-precision-and-scale-of-particular-number-in-python
 def magnitude_and_scale(x):
     MAX_DIGITS = 15 # originally 14; change back to 14 if buggy
-    magnitude = x.copy()
-    scale = x.copy()
-    magnitude[:] = np.nan
-    scale[:] = np.nan
-    
+
     x_abs = x.dropna().abs()
+    if len(x_abs) == 0:
+        raise ValueError('Empty series after dropping NAs.')
+
     int_part = x_abs.astype(int)
-    magnitude_nona = np.log10(int_part.replace(0, 1)).astype(int) + 1
-    magnitude_nona = magnitude_nona.clip(1, MAX_DIGITS)
-    
+    magnitude = np.log10(int_part.replace(0, 1)).astype(int) + 1
+    magnitude = magnitude.clip(1, MAX_DIGITS).astype(int)
     frac_part = x_abs - int_part
-    multiplier = 10 ** (MAX_DIGITS - magnitude_nona)
-    frac_digits = (multiplier + (multiplier * frac_part + 0.5).astype(int)).astype(str)
-    frac_digits = frac_digits.str.rstrip('0').astype(float).astype(int)
-    scale.loc[~x.isna()] = np.log10(frac_digits).astype(int)
+    multiplier = 10 ** (MAX_DIGITS - magnitude)
+    frac_digits = (multiplier + (multiplier * frac_part + 0.5).astype(int))
+    while np.all(frac_digits % 10 == 0):
+        frac_digits /= 10
+    scale = np.log10(frac_digits).astype(int)
     
-    magnitude.loc[~x.isna()] = magnitude_nona
-    
-    return magnitude, scale
+    return magnitude.max(), scale.min()
 
 
 def get_type(x, force_allow_null=False):
@@ -60,9 +57,6 @@ def get_type(x, force_allow_null=False):
                 result = 'nvarchar(%s)' % size
         elif pd.api.types.is_numeric_dtype(x):
             magnitude, scale = magnitude_and_scale(x)
-            magnitude = magnitude.max()
-            scale = scale.max()
-            
             if (scale == 0) or pd.api.types.is_integer_dtype(x):
                 if ((x >= 0) & (x <= 1)).all():
                     result = 'bit'
@@ -102,23 +96,43 @@ def indent(str_arr, times=1, spaces=4):
     return [indentation + x for x in str_arr]
 
 
-def get_create_statement(df, table_name, force_allow_null=False, sample=None, verbose=False):
-    template = '''CREATE TABLE %s (\n%s\n) ON [PRIMARY];'''
-    
+def get_df_type(df, force_allow_null=False, sample=None, verbose=False):
     if not sample is None:
         df = df.sample(sample)
-    
-    col_defs = []
     cols = df.columns
-    
     if verbose:
         cols = tqdm(cols)
+    result = []
 
-    for col in cols: 
+    for col in cols:
         vartype, comment = get_type(df[col], force_allow_null=force_allow_null)
+        result.append([col, vartype, comment])
+    return result
+
+
+def cast_and_clean_df(df, df_types):
+    # TODO: determine if casting for other types is necessary
+    result = df.copy()
+
+    for col in df_types:
+        colname, vartype, comment = col
+        if 'decimal' in vartype:
+            # TODO: clean up this representation mess; shouldn't have to parse string in the first place
+            magnitude, scale = [int(x.strip()) for x in vartype.split('(')[1].split(')')[0].split(',')]
+            result[colname] = result[colname].round(scale)
+    
+    return result
+
+
+def get_create_statement(df_types, table_name):
+    template = '''CREATE TABLE %s (\n%s\n) ON [PRIMARY];'''
+
+    col_defs = []
+    for col in df_types:
+        colname, vartype, comment = col
         if comment != '':
             col_defs.append('-- %s' % comment)
-        col_defs.append('[%s] %s' % (col, vartype))
+        col_defs.append('[%s] %s' % (colname, vartype))
     col_defs = ',\n'.join(indent(col_defs))
     
     return template % (table_name, col_defs)
@@ -271,9 +285,17 @@ class sql_dataset(dataset):
             '-P', self.config['conn']['password'],
         ]
         
+        # get column type definitions and cast data (deals with float errors)
+        if verbose:
+            print('Determining data types and preprocessing data.')
+        self.data_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
+        self.data = cast_and_clean_df(self.data, self.data_types)
+
         if mode == 'append':
             pass
         elif mode == 'overwrite_data':
+            if verbose:
+                print('Deleting data from database.')
             p = subprocess.Popen([
                 'sqlcmd',
                 *host_config_args,
@@ -281,21 +303,20 @@ class sql_dataset(dataset):
             ]).wait()
         elif mode == 'overwrite_table':
             # drop old table
+            if verbose:
+                print('Dropping old table.')
             p = subprocess.Popen([
                 'sqlcmd',
                 *host_config_args,
                 '-Q', "IF OBJECT_ID('dbo.%s', 'U') IS NOT NULL DROP TABLE dbo.%s;" % (self.config['table'], self.config['table']),
             ])
-            
+
             # get schema definition
-            schema_def_query = get_create_statement(
-                self.data, self.config['table'],
-                force_allow_null=True,
-                verbose=verbose,
-                sample=schema_sample,
-            )
+            schema_def_query = get_create_statement(self.data_types, self.config['table'])
             
             # create new table
+            if verbose:
+                print('Creating new table.')
             p = subprocess.Popen([
                 'sqlcmd',
                 *host_config_args,
@@ -305,8 +326,12 @@ class sql_dataset(dataset):
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
         
         temp_filename = 'bcp_temp_%s' % uuid.uuid4()
+        if verbose:
+            print('Writing to: %s' % (temp_filename + '.csv'))
         self.data.to_csv(temp_filename + '.csv', sep='$', index=False)
 
+        if verbose:
+            print('Uploading.')
         p = subprocess.Popen([
             'bcp',
             self.config['table'],
@@ -319,6 +344,8 @@ class sql_dataset(dataset):
         ]).wait()
 
         # clean up temp csv
+        if verbose:
+            print('Cleaning up.')
         if os.path.exists(temp_filename + '.csv'):
             os.remove(temp_filename + '.csv')
         
