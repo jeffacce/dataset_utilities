@@ -356,9 +356,15 @@ class sql_dataset(dataset):
             *host_config_args,
         ]).wait()
 
-        # clean up temp csv
+        # clean up temp files
         if verbose:
             print('Cleaning up.')
         if os.path.exists(temp_filename + '.csv'):
             os.remove(temp_filename + '.csv')
+        if os.path.exists(temp_filename + '.err'):
+            # delete error file if empty
+            f = open(temp_filename + '.err', 'r')
+            content = f.read()
+            if len(content) == 0:
+                os.remove(temp_filename + '.err')
         
