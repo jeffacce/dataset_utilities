@@ -322,7 +322,7 @@ class sql_dataset(dataset):
                 'sqlcmd',
                 *host_config_args,
                 '-Q', "IF OBJECT_ID('dbo.%s', 'U') IS NOT NULL DROP TABLE dbo.%s;" % (self.config['table'], self.config['table']),
-            ])
+            ]).wait()
 
             # get schema definition
             schema_def_query = get_create_statement(self.data_types, self.config['table'])
@@ -334,7 +334,7 @@ class sql_dataset(dataset):
                 'sqlcmd',
                 *host_config_args,
                 '-Q', schema_def_query,
-            ])
+            ]).wait()
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
         
