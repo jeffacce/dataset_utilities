@@ -25,15 +25,15 @@ def magnitude_and_scale(x):
 
     int_part = x_abs.astype(int)
     magnitude = np.log10(int_part.replace(0, 1)).astype(int) + 1
-    magnitude = magnitude.clip(1, MAX_DIGITS).astype(int)
+    magnitude = magnitude.clip(1, MAX_DIGITS).astype(int).max()
     frac_part = x_abs - int_part
     multiplier = 10 ** (MAX_DIGITS - magnitude)
     frac_digits = (multiplier + (multiplier * frac_part + 0.5).astype(int))
     while np.all(frac_digits % 10 == 0):
         frac_digits /= 10
-    scale = np.log10(frac_digits).astype(int)
+    scale = np.log10(frac_digits.min()).astype(int)
     
-    return magnitude.max(), scale.min()
+    return magnitude, scale
 
 
 def get_type(x, force_allow_null=False):
