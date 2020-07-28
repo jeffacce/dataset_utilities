@@ -27,7 +27,7 @@ def magnitude_and_scale(x):
     magnitude = np.log10(int_part.replace(0, 1)).astype(int) + 1
     magnitude = magnitude.clip(1, MAX_DIGITS).astype(int).max()
     frac_part = x_abs - int_part
-    multiplier = 10 ** (MAX_DIGITS - magnitude)
+    multiplier = 10 ** np.int64(MAX_DIGITS - magnitude)
     frac_digits = (multiplier + (multiplier * frac_part + 0.5).astype(int))
     while np.all(frac_digits % 10 == 0):
         frac_digits /= 10
