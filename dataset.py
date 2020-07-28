@@ -19,9 +19,9 @@ import time
 def magnitude_and_scale(x):
     MAX_DIGITS = 15 # originally 14; change back to 14 if buggy
 
-    x_abs = x.dropna().abs()
+    x_abs = x.replace([-np.inf, np.inf], np.nan).dropna().abs()
     if len(x_abs) == 0:
-        raise ValueError('Empty series after dropping NAs.')
+        raise ValueError('Empty series after dropping NaN, inf.')
 
     int_part = x_abs.astype(int)
     magnitude = np.log10(int_part.replace(0, 1)).astype(int) + 1
@@ -53,7 +53,7 @@ def get_type(x, force_allow_null=False):
             elif type(x.iloc[0]) is datetime.datetime or type(x.iloc[0]) is pd.Timestamp:
                 result = 'datetime'
             else:
-                size = min(int(x.astype(str).str.len().max() * 2), 4000)
+                size = min(int(pd.Series(x.unique()).astype(str).str.len().max() * 2), 4000)
                 result = 'nvarchar(%s)' % size
         elif pd.api.types.is_numeric_dtype(x):
             magnitude, scale = magnitude_and_scale(x)
@@ -120,6 +120,9 @@ def cast_and_clean_df(df, df_types):
             # TODO: clean up this representation mess; shouldn't have to parse string in the first place
             magnitude, scale = [int(x.strip()) for x in vartype.split('(')[1].split(')')[0].split(',')]
             result[colname] = result[colname].round(scale)
+            if result[colname].isin([np.inf, -np.inf]).any():
+                warnings.warn('MS SQL Server does not support infinity. Replacing with NaN.')
+                result[colname].replace([np.inf, -np.inf], np.nan, inplace=True)
     
     return result
 
