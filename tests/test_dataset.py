@@ -1,5 +1,5 @@
 import pytest
-from ..dataset import magnitude_and_scale, get_type
+from ..dataset import magnitude_and_scale, get_type, _try_import
 import pandas as pd
 import numpy as np
 
@@ -65,6 +65,9 @@ def test_get_type_decimal():
     result, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan]))
     assert result == 'decimal(2, 1) NULL'
 
+    result, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan, np.inf]))
+    assert result == 'decimal(2, 1) NULL'
+
 
 def test_get_type_str():
     result, comment = get_type(pd.Series(['123']))
@@ -127,3 +130,19 @@ def test_get_type_empty():
     result, comment = get_type(pd.Series([np.nan]))
     assert result == 'nvarchar(255) NULL'
     assert comment == 'empty column, defaulting to nvarchar(255)'
+
+
+def test_try_import():
+    package = _try_import('numpy')
+    assert package is np
+
+    module = _try_import('numpy.abs')
+    assert module is np.abs
+
+    from pandas.tseries import offsets
+    module = _try_import('pandas.tseries.offsets')
+    assert module is offsets
+
+    from pandas.tseries.offsets import DateOffset
+    method = _try_import('pandas.tseries.offsets.DateOffset')
+    assert method is DateOffset

@@ -8,4 +8,4 @@ result.csv
 *.tmp
 *.err
 database.yml
-
+.coverage

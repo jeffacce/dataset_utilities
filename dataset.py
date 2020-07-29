@@ -147,8 +147,11 @@ def _try_import(s):
     arr = s.lstrip('.').split('.')
 
     if len(arr) == 1:
+        package_name = None
         module_name = arr[0]
+        method_name = None
     elif len(arr) == 2:
+        package_name = None
         module_name = arr[0]
         method_name = arr[1]
     elif len(arr) >= 3:
