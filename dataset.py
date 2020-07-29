@@ -37,6 +37,7 @@ def magnitude_and_scale(x):
 
 
 def get_type(x, force_allow_null=False):
+    x = pd.Series(x)
     has_null = (x.isna().sum() > 0) or force_allow_null
     comment = ''
     x = x.dropna().reset_index(drop=True)
@@ -44,6 +45,7 @@ def get_type(x, force_allow_null=False):
     MAX_PRECISION = 38
     
     if len(x) == 0:
+        has_null = True
         result = 'nvarchar(255)'
         comment = 'empty column, defaulting to nvarchar(255)'
     else:
