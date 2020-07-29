@@ -368,6 +368,7 @@ class sql_dataset(dataset):
             # delete error file if empty
             f = open(temp_filename + '.err', 'r')
             content = f.read()
+            f.close()
             if len(content) == 0:
                 os.remove(temp_filename + '.err')
         
