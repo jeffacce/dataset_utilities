@@ -1,4 +1,5 @@
 # Dataset Utilities (Supports MS SQL)
+![](https://github.com/jeffacce/dataset_utilities/workflows/Tests/badge.svg)
 *This utility snippet is under active development. To report a bug, please open an issue.*
 
 A minimalistic encapsulation of `pandas`, `pyodbc`, and `bcp` for in-memory dataset ETL workflows, and automatic BCP upload to MS SQL Server, encouraging organizing everything into separate, modular files. Your script can look like this:
