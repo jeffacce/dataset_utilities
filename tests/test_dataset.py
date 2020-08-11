@@ -1,7 +1,12 @@
 import pytest
-from ..dataset import magnitude_and_scale, get_type, _try_import
+from ..dataset import (
+    magnitude_and_scale, get_type,
+    _try_import, indent, get_df_type,
+    cast_and_clean_df
+)
 import pandas as pd
 import numpy as np
+
 
 # dataset.magnitude_and_scale
 def test_magnitude_and_scale_int():
@@ -13,6 +18,12 @@ def test_magnitude_and_scale_int():
 def test_magnitude_and_scale_float_type_int():
     mag, scale = magnitude_and_scale(pd.Series([123.0, 1.0, 1234.0, np.nan]))
     assert mag == 4
+    assert scale == 0
+
+
+def test_magnitude_and_scale_float_with_inf():
+    mag, scale = magnitude_and_scale(pd.Series([1.0, 2.0, np.inf, -np.inf]))
+    assert mag == 1
     assert scale == 0
 
 
@@ -146,3 +157,30 @@ def test_try_import():
     from pandas.tseries.offsets import DateOffset
     method = _try_import('pandas.tseries.offsets.DateOffset')
     assert method is DateOffset
+
+
+def test_indent():
+    assert indent(['blah']) == ['    blah']
+
+
+df = pd.DataFrame({
+    'intcol': pd.Series([1,2,3]),
+    'strcol': pd.Series(['a', 'b', 'c']),
+    'floatcol': pd.Series([np.inf, 1.100, 2.100]),
+})
+
+df_type = [
+    ['intcol', 'tinyint', ''],
+    ['strcol', 'nvarchar(2)', ''],
+    ['floatcol', 'decimal(2, 1)', '']
+]
+
+def test_get_df_type():
+    assert get_df_type(df) == df_type
+
+
+def test_cast_and_clean_df():
+    with pytest.warns(UserWarning, match='infinity'):
+        df_clean = cast_and_clean_df(df, df_type)
+    assert np.inf not in df_clean
+    assert -np.inf not in df_clean
