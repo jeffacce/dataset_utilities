@@ -40,7 +40,7 @@ def get_type(x, force_allow_null=False):
     x = pd.Series(x)
     has_null = (x.isna().sum() > 0) or force_allow_null
     comment = ''
-    x = x.dropna().reset_index(drop=True)
+    x = x.replace([np.inf, -np.inf], np.nan).dropna().reset_index(drop=True)
 
     MAX_PRECISION = 38
     
