@@ -259,7 +259,7 @@ class sql_dataset(dataset):
                 print('Failed to connect.')
         return success
 
-    def query(self, get_data=None, get_row_count=None, chunksize=100):
+    def query(self, get_data=None, get_row_count=None, chunksize=1000):
         if not self.ping():
             raise requests.ConnectionError('Failed to connect to database.')
 
