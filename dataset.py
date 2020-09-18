@@ -289,7 +289,7 @@ class sql_dataset(dataset):
         data = []
         for chunk in chunks:
             data.append(chunk)
-        self.data = pd.concat(data)
+        self.data = pd.concat(data).reset_index(drop=True)
         if self.data.size == 1:
             self.data = self.data.iloc[0].item()
         
