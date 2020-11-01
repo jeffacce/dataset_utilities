@@ -203,7 +203,6 @@ class dataset:
                 self.config['filepath'],
                 header=self.config.get('header', 0),
                 sheet_name=self.config.get('sheet_name', 0),
-                encoding=self.config.get('encoding'),
             )
         else:
             raise ValueError('Only .h5/hdf/hdf5/csv/xls/xlsx supported.')
@@ -296,6 +295,8 @@ class sql_dataset(dataset):
         if self.data.size == 1:
             self.data = self.data.iloc[0].item()
         
+        conn.close()
+        
         return self
     
     def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
@@ -315,39 +316,32 @@ class sql_dataset(dataset):
         self.data_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
         self.data = cast_and_clean_df(self.data, self.data_types)
 
+        conn = pyodbc.connect(**self.config['conn'])
+        crsr = conn.cursor()
         if mode == 'append':
             pass
         elif mode == 'overwrite_data':
             if verbose:
                 print('Deleting data from database.')
-            p = subprocess.Popen([
-                'sqlcmd',
-                *host_config_args,
-                '-Q', 'TRUNCATE TABLE dbo.%s;' % self.config['table'],
-            ]).wait()
+            crsr.execute('TRUNCATE TABLE %s;' % self.config['table'])
+            conn.commit()
         elif mode == 'overwrite_table':
             # drop old table
             if verbose:
                 print('Dropping old table.')
-            p = subprocess.Popen([
-                'sqlcmd',
-                *host_config_args,
-                '-Q', "IF OBJECT_ID('dbo.%s', 'U') IS NOT NULL DROP TABLE dbo.%s;" % (self.config['table'], self.config['table']),
-            ]).wait()
 
-            # get schema definition
-            schema_def_query = get_create_statement(self.data_types, self.config['table'])
-            
+            crsr.execute("IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s;" % (self.config['table'], self.config['table']))
+            conn.commit()
+
             # create new table
+            schema_def_query = get_create_statement(self.data_types, self.config['table'])
             if verbose:
                 print('Creating new table.')
-            p = subprocess.Popen([
-                'sqlcmd',
-                *host_config_args,
-                '-Q', schema_def_query,
-            ]).wait()
+            crsr.execute(schema_def_query)
+            conn.commit()
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
+        conn.close()
         
         temp_filename = 'bcp_temp_%s' % uuid.uuid4()
         if verbose:
