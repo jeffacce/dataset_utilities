@@ -298,8 +298,19 @@ class sql_dataset(dataset):
         conn.close()
         
         return self
-    
-    def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
+
+    def upload(self, mode='append', bcp=True, verbose=False, schema_sample=None, chunksize=1000):
+        '''
+        Upload data to database.
+        `mode`:
+            - `append`: upload to an existing table. (Default)
+            - `overwrite_data`: truncate existing table and upload data.
+            - `overwrite_table`: drop existing table, create new table, and upload data.
+        `bcp`: use MS SQL `bcp` utilities. Default true. If false, uses pyodbc `fast_executemany`.
+        `verbose`: verbose output.
+        `schema_sample`: # of rows scanned for automatically generating the CREATE schema. Default None (scan the entire dataframe).
+        `chunksize`: chunk size. Default 1000.
+        '''
         if not self.ping(verbose=verbose):
             raise requests.ConnectionError('Failed to connect to database.')
 
@@ -342,35 +353,58 @@ class sql_dataset(dataset):
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
         conn.close()
-        
-        temp_filename = 'bcp_temp_%s' % uuid.uuid4()
-        if verbose:
-            print('Writing to: %s' % (temp_filename + '.csv'))
-        self.data.to_csv(temp_filename + '.csv', sep='$', index=False)
 
-        if verbose:
-            print('Uploading.')
-        p = subprocess.Popen([
-            'bcp',
-            self.config['table'],
-            'in',
-            temp_filename + '.csv',
-            '-c', r'-t\$', '-k', '-E',
-            '-e', temp_filename + '.err',
-            '-F2',
-            *host_config_args,
-        ]).wait()
+        if bcp:
+            temp_filename = 'bcp_temp_%s' % uuid.uuid4()
+            if verbose:
+                print('Writing to: %s' % (temp_filename + '.csv'))
+            self.data.to_csv(temp_filename + '.csv', sep='$', index=False)
 
-        # clean up temp files
-        if verbose:
-            print('Cleaning up.')
-        if os.path.exists(temp_filename + '.csv'):
-            os.remove(temp_filename + '.csv')
-        if os.path.exists(temp_filename + '.err'):
-            # delete error file if empty
-            f = open(temp_filename + '.err', 'r')
-            content = f.read()
-            f.close()
-            if len(content) == 0:
-                os.remove(temp_filename + '.err')
+            if verbose:
+                print('Uploading.')
+            p = subprocess.Popen([
+                'bcp',
+                self.config['table'],
+                'in',
+                temp_filename + '.csv',
+                '-c', r'-t\$', '-k', '-E',
+                '-e', temp_filename + '.err',
+                '-F2',
+                '-b', str(int(chunksize)),
+                *host_config_args,
+            ]).wait()
+
+            # clean up temp files
+            if verbose:
+                print('Cleaning up.')
+            if os.path.exists(temp_filename + '.csv'):
+                os.remove(temp_filename + '.csv')
+            if os.path.exists(temp_filename + '.err'):
+                # delete error file if empty
+                f = open(temp_filename + '.err', 'r')
+                content = f.read()
+                f.close()
+                if len(content) == 0:
+                    os.remove(temp_filename + '.err')
+        else:
+            conn = pyodbc.connect(**self.config['conn'], autocommit=False)
+            crsr = conn.cursor()
+            crsr.fast_executemany = True
+            
+            colnames = pd.Series(self.data.columns).apply(lambda x: '[%s]' % x)
+            colnames = ','.join(list(colnames))
+            blanks = ','.join(['?'] * len(self.data.columns))
+            
+            batch_range = range(int(np.ceil(len(self.data) / chunksize)))
+            if verbose:
+                batch_range = tqdm(batch_range)
+            for i in batch_range:
+                chunk = self.data.iloc[i*chunksize : (i+1)*chunksize]
+                sql = 'INSERT INTO %s (%s) VALUES (%s)' % (self.config['table'], colnames, blanks)
+                crsr.executemany(sql, chunk.values.tolist())
+                conn.commit()
+            conn.close()
         
+    def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
+        warnings.warn("`sql_dataset.upload_bcp` is deprecated. Use `sql_dataset.upload(bcp=True)` instead.", DeprecationWarning)
+        self.upload(mode=mode, bcp=True, verbose=verbose, schema_sample=schema_sample)
