@@ -2,7 +2,7 @@
 ![](https://github.com/jeffacce/dataset_utilities/workflows/Tests/badge.svg)
 *This utility snippet is under active development. To report a bug, please open an issue.*
 
-A minimalistic encapsulation of `pandas`, `pyodbc`, and `bcp` for in-memory dataset ETL workflows, and automatic BCP upload to MS SQL Server, encouraging organizing everything into separate, modular files. Your script can look like this:
+A minimalistic encapsulation of `pandas`, `pyodbc`, and `bcp` for in-memory dataset ETL workflows, and automatic upload to MS SQL Server, encouraging organizing everything into separate, modular files. Your script can look like this:
 ```python
 from dataset import sql_dataset
 my_dataset = sql_dataset('config.yml')
@@ -10,10 +10,10 @@ df = my_dataset.query().transform().data
 
 uploader = sql_dataset('upload_target.yml')
 uploader.data = df
-uploader.upload_bcp(mode='overwrite_table', verbose=True)
+uploader.upload(mode='overwrite_table', bcp=True, verbose=True)
 ```
 
-Right now it supports MS SQL only, and you need `sqlcmd` and `bcp` installed and included in `PATH`.
+Right now it supports MS SQL only. If `BCP` is not installed, specify `bcp=False` for uploading.
 
 ## Features
 - Organize datasets as separate *config files* and *transform scripts*
@@ -22,12 +22,12 @@ Right now it supports MS SQL only, and you need `sqlcmd` and `bcp` installed and
   - Specify transform functions naturally like imports, e.g.
     - From an existing package: `numpy.abs`
     - From a custom script at `./etl_scripts/transforms.py/` containing the transform function `clean`: `etl_scripts.transforms.clean`
-  - Specify `bcp` upload table name for bulk inserting data directly from Pandas DataFrame
+  - Specify upload table name for bulk inserting data directly from Pandas DataFrame
 - Query SQL databases with automatic connection test/retry logic
 - (Experimental) Automatically generate storage-optimized DDL (`CREATE TABLE` statements) from Pandas DataFrame
   - Supports `decimal`, `nvarchar`, `date`, `datetime`, and integer types
   - Detects type and necessary storage space (e.g. precision, scale, max chars, integer types) from Pandas DataFrame
-- Convenient `upload_bcp` wrapper for MS SQL `bcp` utility
+- Convenient `upload` wrapper
 
 ## Installation
 Just copy the snippet `dataset.py` and import it into your script. Package requirements are listed in `requirements.txt`. Requires `pandas`, `numpy`, `tqdm`, `requests`, `pyodbc`, `PyYAML`.
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     my_dataset = sql_dataset(
         config_file='./config/my_dataset.yml',
     )
-    my_dataset.query().transform().write().upload_bcp(mode='overwrite_table', verbose=True)
+    my_dataset.query().transform().write().upload(mode='overwrite_table', bcp=True, verbose=True)
 
     df = my_dataset.data
     # do additional things with the raw dataframe
@@ -129,7 +129,7 @@ filepath: ./data/my_dataset.csv
 ```
 
 #### Table name
-Set the upload table name for `bcp` upload. If you specified `'overwrite_table'` in the main program, the script will look at your dataframe column by column, determine the data type and the variable length required, and send an optimized `CREATE TABLE` command to the SQL server to create your table.
+Set the upload table name. If you specified `'overwrite_table'` in the main program, the script will look at your dataframe column by column, determine the data type and the variable length required, and send a `CREATE TABLE` command to the SQL server to create your table.
 ```yaml
 # ./config/my_dataset.yml
 table: full_year_sales
