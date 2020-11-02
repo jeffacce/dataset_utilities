@@ -34,6 +34,20 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Install SQL Server
+        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/18.04/mssql-server-2019.list)"
+        sudo apt-get update -y
+        sudo apt-get install -y mssql-server
+        sudo MSSQL_SA_PASSWORD='j0wMYnzpDS4!2Py6' MSSQL_PID='developer' /opt/mssql/bin/mssql-conf -n setup accept-eula
+        sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+        echo PATH="$PATH:/opt/mssql-tools/bin" >> ~/.bash_profile
+        echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+        source ~/.bashrc
+        sudo ufw allow 1433/tcp
+        sudo ufw reload
+        sudo systemctl restart mssql-server
+        sudo /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P j0wMYnzpDS4!2Py6 -Q "CREATE DATABASE test_db"
     - name: Test with pytest
       run: |
         pytest
