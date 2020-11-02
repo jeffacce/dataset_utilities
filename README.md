@@ -1,33 +1,33 @@
 # Dataset Utilities (Supports MS SQL)
 ![](https://github.com/jeffacce/dataset_utilities/workflows/Tests/badge.svg)
+
 *This utility snippet is under active development. To report a bug, please open an issue.*
 
-A minimalistic encapsulation of `pandas`, `pyodbc`, and `bcp` for in-memory dataset ETL workflows, and automatic upload to MS SQL Server, encouraging organizing everything into separate, modular files. Your script can look like this:
+## Why?
+- One dataset, one config file, one line in the main script. Working work 8 datasets? 8 config files. No more boring ETL stuff scattered all around.
+- Upload to SQL fast, in one call, with the table schema auto-generated from the data.
+
+Your main script can look like this:
 ```python
 from dataset import sql_dataset
-my_dataset = sql_dataset('config.yml')
-df = my_dataset.query().transform().data
-
+df = sql_dataset('config.yml').query().transform().data
 uploader = sql_dataset('upload_target.yml')
 uploader.data = df
 uploader.upload(mode='overwrite_table', bcp=True, verbose=True)
 ```
 
-Right now it supports MS SQL only. If `BCP` is not installed, specify `bcp=False` for uploading.
+Requires `pandas`, `pyodbc`. Right now it supports MS SQL only.
+
+For uploading, if `BCP` is not installed, specify `bcp=False`.
 
 ## Features
-- Organize datasets as separate *config files* and *transform scripts*
-  - Specify read/write file path
-  - Specify SQL host config and SQL queries
+- Describe read/write filepath, SQL host config, queries, transform function import, upload target table names
   - Specify transform functions naturally like imports, e.g.
     - From an existing package: `numpy.abs`
-    - From a custom script at `./etl_scripts/transforms.py/` containing the transform function `clean`: `etl_scripts.transforms.clean`
-  - Specify upload table name for bulk inserting data directly from Pandas DataFrame
-- Query SQL databases with automatic connection test/retry logic
-- (Experimental) Automatically generate storage-optimized DDL (`CREATE TABLE` statements) from Pandas DataFrame
-  - Supports `decimal`, `nvarchar`, `date`, `datetime`, and integer types
-  - Detects type and necessary storage space (e.g. precision, scale, max chars, integer types) from Pandas DataFrame
-- Convenient `upload` wrapper
+    - From a script at `./etl_scripts/transforms.py/` containing the transform function `clean`: `etl_scripts.transforms.clean`
+  - Connection test/retry logic
+- `upload` utility
+  - Auto-generate schema from dataframe. Supports `decimal`, `nvarchar`, `date`, `datetime`, and integer types.
 
 ## Installation
 Just copy the snippet `dataset.py` and import it into your script. Package requirements are listed in `requirements.txt`. Requires `pandas`, `numpy`, `tqdm`, `requests`, `pyodbc`, `PyYAML`.
