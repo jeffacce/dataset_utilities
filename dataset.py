@@ -234,6 +234,16 @@ class dataset:
 
 
 class sql_dataset(dataset):
+    def __init__(self, config_path=None):
+        super.__init__(self, config_path=config_path)
+        if 'conn' in self.config:
+            self.host_config_args = [
+                '-S', self.config['conn']['server'],
+                '-d', self.config['conn']['database'],
+                '-U', self.config['conn']['user'],
+                '-P', self.config['conn']['password'],
+            ]
+    
     def ping(self, max_retries=3, delay=5, verbose=False):
         success = False
         retries = 0
@@ -299,6 +309,18 @@ class sql_dataset(dataset):
         
         return self
 
+    def send_cmd(self, cmd, verbose=False):
+        if not self.ping(verbose=verbose):
+            raise requests.ConnectionError('Failed to connect to database.')
+
+        conn = pyodbc.connect(self.config['conn'])
+        crsr = conn.cursor()
+        crsr.execute(cmd)
+        result = crsr.fetchall()
+        conn.commit()
+        conn.close()
+        return result
+
     def upload(self, mode='append', bcp=True, verbose=False, schema_sample=None, chunksize=1000):
         '''
         Upload data to database.
@@ -314,45 +336,32 @@ class sql_dataset(dataset):
         if not self.ping(verbose=verbose):
             raise requests.ConnectionError('Failed to connect to database.')
 
-        host_config_args = [
-            '-S', self.config['conn']['server'],
-            '-d', self.config['conn']['database'],
-            '-U', self.config['conn']['user'],
-            '-P', self.config['conn']['password'],
-        ]
-        
         # get column type definitions and cast data (deals with float errors)
         if verbose:
             print('Determining data types and preprocessing data.')
         self.data_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
         self.data = cast_and_clean_df(self.data, self.data_types)
 
-        conn = pyodbc.connect(**self.config['conn'])
-        crsr = conn.cursor()
         if mode == 'append':
             pass
         elif mode == 'overwrite_data':
             if verbose:
                 print('Deleting data from database.')
-            crsr.execute('TRUNCATE TABLE %s;' % self.config['table'])
-            conn.commit()
+            self.send_cmd('TRUNCATE TABLE %s;' % self.config['table'])
         elif mode == 'overwrite_table':
             # drop old table
             if verbose:
                 print('Dropping old table.')
 
-            crsr.execute("IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s;" % (self.config['table'], self.config['table']))
-            conn.commit()
+            self.send_cmd("IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s;" % (self.config['table'], self.config['table']))
 
             # create new table
             schema_def_query = get_create_statement(self.data_types, self.config['table'])
             if verbose:
                 print('Creating new table.')
-            crsr.execute(schema_def_query)
-            conn.commit()
+            self.send_cmd(schema_def_query)
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
-        conn.close()
 
         if bcp:
             temp_filename = 'bcp_temp_%s' % uuid.uuid4()
@@ -374,7 +383,7 @@ class sql_dataset(dataset):
                 '-e', temp_filename + '.err',
                 '-F2',
                 '-b', str(int(chunksize)),
-                *host_config_args,
+                *self.host_config_args,
             ], stdout=stdout).wait()
 
             # clean up temp files
