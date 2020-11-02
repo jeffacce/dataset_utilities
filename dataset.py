@@ -358,21 +358,24 @@ class sql_dataset(dataset):
             temp_filename = 'bcp_temp_%s' % uuid.uuid4()
             if verbose:
                 print('Writing to: %s' % (temp_filename + '.csv'))
-            self.data.to_csv(temp_filename + '.csv', sep='$', index=False)
+            self.data.to_csv(temp_filename + '.csv', sep='[||]', index=False)
 
             if verbose:
                 print('Uploading.')
+                stdout = None
+            else:
+                stdout = subprocess.DEVNULL
             p = subprocess.Popen([
                 'bcp',
                 self.config['table'],
                 'in',
                 temp_filename + '.csv',
-                '-c', r'-t\$', '-k', '-E',
+                '-c', r'-t"[||]"', '-k', '-E',
                 '-e', temp_filename + '.err',
                 '-F2',
                 '-b', str(int(chunksize)),
                 *host_config_args,
-            ]).wait()
+            ], stdout=stdout).wait()
 
             # clean up temp files
             if verbose:
