@@ -253,6 +253,12 @@ class sql_dataset(dataset):
             ]
     
     def ping(self, max_retries=3, delay=5, verbose=False):
+        '''
+        Ping a database (send a `SELECT 1` query), and return whether successful (True/False).
+        `max_retries`: maximum number of tries to ping the database.
+        `delay`: initial delay after failure (seconds). Each successive delay will be doubled in time.
+        `verbose`: verbose output. Default False.
+        '''
         success = False
         retries = 0
         while (not success) and retries < max_retries:
@@ -277,6 +283,18 @@ class sql_dataset(dataset):
         return success
 
     def query(self, get_data=None, get_row_count=None, chunksize=1000):
+        '''
+        Query a database.
+        `get_data`:
+            SQL query for the actual data.
+            Must be supplied either in config or as an argument here.
+            If both are supplied, argument always overrides config.
+        `get_row_count`:
+            Display a progress bar if supplied in config or as an argument here.
+            If both are supplied, argument always overrides config.
+        `chunksize`:
+            chunk size. Default 1000.
+        '''
         if not self.ping():
             raise requests.ConnectionError('Failed to connect to database.')
 
@@ -318,6 +336,11 @@ class sql_dataset(dataset):
         return self
 
     def send_cmd(self, cmd, verbose=False):
+        '''
+        Send a command to the database w/o returning results.
+        `cmd`: SQL query to send.
+        `verbose`: verbose output. Default False.
+        '''
         if not self.ping(verbose=verbose):
             raise requests.ConnectionError('Failed to connect to database.')
 
@@ -331,11 +354,11 @@ class sql_dataset(dataset):
         '''
         Upload data to database.
         `mode`:
-            - `append`: upload to an existing table. (Default)
-            - `overwrite_data`: truncate existing table and upload data.
-            - `overwrite_table`: drop existing table, create new table, and upload data.
-        `bcp`: use MS SQL `bcp` utilities. Default true. If false, uses pyodbc `fast_executemany`.
-        `verbose`: verbose output.
+            - `append`: append to an existing table. (Default)
+            - `overwrite_data`: truncate the existing table and upload data.
+            - `overwrite_table`: drop the existing table, create a new table, and upload data.
+        `bcp`: use MS SQL `bcp` utilities. Default True. If False, uses pyodbc with `fast_executemany`.
+        `verbose`: verbose output. Default False.
         `schema_sample`: # of rows scanned for automatically generating the CREATE schema. Default None (scan the entire dataframe).
         `chunksize`: chunk size. Default 1000.
         '''
