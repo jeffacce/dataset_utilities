@@ -235,7 +235,7 @@ class dataset:
 
 class sql_dataset(dataset):
     def __init__(self, config_path=None):
-        super.__init__(self, config_path=config_path)
+        super().__init__(config_path=config_path)
         if 'conn' in self.config:
             self.host_config_args = [
                 '-S', self.config['conn']['server'],
@@ -313,13 +313,11 @@ class sql_dataset(dataset):
         if not self.ping(verbose=verbose):
             raise requests.ConnectionError('Failed to connect to database.')
 
-        conn = pyodbc.connect(self.config['conn'])
+        conn = pyodbc.connect(**self.config['conn'])
         crsr = conn.cursor()
         crsr.execute(cmd)
-        result = crsr.fetchall()
         conn.commit()
         conn.close()
-        return result
 
     def upload(self, mode='append', bcp=True, verbose=False, schema_sample=None, chunksize=1000):
         '''
@@ -367,7 +365,7 @@ class sql_dataset(dataset):
             temp_filename = 'bcp_temp_%s' % uuid.uuid4()
             if verbose:
                 print('Writing to: %s' % (temp_filename + '.csv'))
-            self.data.to_csv(temp_filename + '.csv', sep='[||]', index=False)
+            self.data.to_csv(temp_filename + '.csv', sep='$', index=False)
 
             if verbose:
                 print('Uploading.')
@@ -379,7 +377,7 @@ class sql_dataset(dataset):
                 self.config['table'],
                 'in',
                 temp_filename + '.csv',
-                '-c', r'-t"[||]"', '-k', '-E',
+                '-c', r'-t$', '-k', '-E',
                 '-e', temp_filename + '.err',
                 '-F2',
                 '-b', str(int(chunksize)),

@@ -10,3 +10,6 @@ result.csv
 database.yml
 .coverage
 .vscode
+__pycache__
+!tests/test_data.csv
+!tests/database.yml
