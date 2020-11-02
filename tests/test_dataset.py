@@ -62,84 +62,124 @@ def test_magnitude_and_scale_inf_raises_error():
 
 # dataset.get_type
 def test_get_type_decimal():
-    result, comment = get_type(pd.Series([1.1, 2.1, 3.0])) 
-    assert result == 'decimal(2, 1)'
+    dtype, params, has_null, comment = get_type(pd.Series([1.1, 2.1, 3.0])) 
+    assert dtype == 'decimal'
+    assert params == [2, 1]
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series([123.1234, 12345.1234567, 12.1234567800]))
-    assert result == 'decimal(19, 12)'
+    dtype, params, has_null, comment = get_type(pd.Series([123.1234, 12345.1234567, 12.1234567800]))
+    assert dtype == 'decimal'
+    assert params == [19, 12]
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series([0.12345, 0.123456, 0.123]))
-    assert result == 'decimal(10, 9)'
+    dtype, params, has_null, comment = get_type(pd.Series([0.12345, 0.123456, 0.123]))
+    assert dtype == 'decimal'
+    assert params == [10, 9]
+    assert has_null == False
+    assert comment == ''
 
-    result, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan]))
-    assert result == 'decimal(2, 1) NULL'
+    dtype, params, has_null, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan]))
+    assert dtype == 'decimal'
+    assert params == [2, 1]
+    assert has_null == True
+    assert comment == ''
 
-    result, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan, np.inf]))
-    assert result == 'decimal(2, 1) NULL'
+    dtype, params, has_null, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan, np.inf]))
+    assert dtype == 'decimal'
+    assert params == [2, 1]
+    assert has_null == True
+    assert comment == ''
 
 
 def test_get_type_str():
-    result, comment = get_type(pd.Series(['123']))
-    assert result == 'nvarchar(6)'
+    dtype, params, has_null, comment = get_type(pd.Series(['123']))
+    assert dtype == 'nvarchar'
+    assert params == [6]
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series(['a' * 2001]))
-    assert result == 'nvarchar(4000)'
+    dtype, params, has_null, comment = get_type(pd.Series(['a' * 2001]))
+    assert dtype == 'nvarchar'
+    assert params == [4000]
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series(['a', 'b', 'c', 'def', np.nan]))
-    assert result == 'nvarchar(6) NULL'
+    dtype, params, has_null, comment = get_type(pd.Series(['a', 'b', 'c', 'def', np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [6]
+    assert has_null == True
     assert comment == ''
 
 
 def test_get_type_int():
-    result, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
-    assert result == 'bit'
+    dtype, params, has_null, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
+    assert dtype == 'bit'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series([0, 1, 2, 3, 3.0, 4.0]))
-    assert result == 'tinyint'
+    dtype, params, has_null, comment = get_type(pd.Series([0, 1, 2, 3, 3.0, 4.0]))
+    assert dtype == 'tinyint'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series([-2.0, -1, 0.000, 1, 2.0]))
-    assert result == 'smallint'
+    dtype, params, has_null, comment = get_type(pd.Series([-2.0, -1, 0.000, 1, 2.0]))
+    assert dtype == 'smallint'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series([-60000, 0.000, 60000]))
-    assert result == 'int'
+    dtype, params, has_null, comment = get_type(pd.Series([-60000, 0.000, 60000]))
+    assert dtype == 'int'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
-    result, comment = get_type(pd.Series([-2147490000, 0.000, 2147490000]))
-    assert result == 'bigint'
+    dtype, params, has_null, comment = get_type(pd.Series([-2147490000, 0.000, 2147490000]))
+    assert dtype == 'bigint'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
 
 def test_get_type_mixed():
-    result, comment = get_type(pd.Series([1, 2.0, 3.1, 'abc', pd.Timestamp('2020-01-01 00:00:00'), np.nan]))
-    assert result == 'nvarchar(38) NULL'
+    dtype, params, has_null, comment = get_type(pd.Series([1, 2.0, 3.1, 'abc', pd.Timestamp('2020-01-01 00:00:00'), np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [38]
+    assert has_null == True
+    assert comment == ''
 
 
 def test_get_type_datetime():
-    result, comment = get_type(pd.to_datetime(['2020-01-01', '2020-01-02']))
-    assert result == 'datetime'
+    dtype, params, has_null, comment = get_type(pd.to_datetime(['2020-01-01', '2020-01-02']))
+    assert dtype == 'datetime'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
 
 def test_get_type_date():
-    result, comment = get_type(pd.to_datetime(['2020-01-01', '2020-01-02']).date)
-    assert result == 'date'
+    dtype, params, has_null, comment = get_type(pd.to_datetime(['2020-01-01', '2020-01-02']).date)
+    assert dtype == 'date'
+    assert params == []
+    assert has_null == False
     assert comment == ''
 
 
 def test_get_type_empty():
-    result, comment = get_type(pd.Series([], dtype=object))
-    assert result == 'nvarchar(255) NULL'
+    dtype, params, has_null, comment = get_type(pd.Series([], dtype=object))
+    assert dtype == 'nvarchar'
+    assert params == [255]
+    assert has_null == True
     assert comment == 'empty column, defaulting to nvarchar(255)'
 
-    result, comment = get_type(pd.Series([np.nan]))
-    assert result == 'nvarchar(255) NULL'
+    dtype, params, has_null, comment = get_type(pd.Series([np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [255]
+    assert has_null == True
     assert comment == 'empty column, defaulting to nvarchar(255)'
 
 
@@ -170,9 +210,9 @@ df = pd.DataFrame({
 })
 
 df_type = [
-    ['intcol', 'tinyint', ''],
-    ['strcol', 'nvarchar(2)', ''],
-    ['floatcol', 'decimal(2, 1)', '']
+    ['intcol', 'tinyint', [], False, ''],
+    ['strcol', 'nvarchar', [2], False, ''],
+    ['floatcol', 'decimal', [2, 1], True, '']
 ]
 
 def test_get_df_type():

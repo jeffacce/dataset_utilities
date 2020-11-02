@@ -37,60 +37,63 @@ def magnitude_and_scale(x):
 
 
 def get_type(x, force_allow_null=False):
-    x = pd.Series(x)
+    x = pd.Series(x).replace([np.inf, -np.inf], np.nan)
     has_null = (x.isna().sum() > 0) or force_allow_null
+    params = []
     comment = ''
-    x = x.replace([np.inf, -np.inf], np.nan).dropna().reset_index(drop=True)
+    x = x.dropna().reset_index(drop=True)
 
     MAX_PRECISION = 38
     
     if len(x) == 0:
         has_null = True
-        result = 'nvarchar(255)'
+        dtype = 'nvarchar'
+        params = [255]
         comment = 'empty column, defaulting to nvarchar(255)'
     else:
         if pd.api.types.is_object_dtype(x):
             if type(x.iloc[0]) is datetime.date:
-                result = 'date'
+                dtype = 'date'
             elif type(x.iloc[0]) is datetime.datetime or type(x.iloc[0]) is pd.Timestamp:
-                result = 'datetime'
+                dtype = 'datetime'
             else:
                 size = min(int(pd.Series(x.unique()).astype(str).str.len().max() * 2), 4000)
-                result = 'nvarchar(%s)' % size
+                dtype = 'nvarchar'
+                params = [size]
         elif pd.api.types.is_numeric_dtype(x):
             magnitude, scale = magnitude_and_scale(x)
             if (scale == 0) or pd.api.types.is_integer_dtype(x):
                 if ((x >= 0) & (x <= 1)).all():
-                    result = 'bit'
+                    dtype = 'bit'
                 elif ((x >= 0) & (x <= 2**8-1)).all():
-                    result = 'tinyint'
+                    dtype = 'tinyint'
                 elif ((x >= -2**15) & (x <= 2**15-1)).all():
-                    result = 'smallint'
+                    dtype = 'smallint'
                 elif ((x >= -2**31) & (x <= 2**31-1)).all():
-                    result = 'int'
+                    dtype = 'int'
                 else:
-                    result = 'bigint'
+                    dtype = 'bigint'
             else:
                 precision = magnitude + scale
                 if precision > MAX_PRECISION:
-                    result = 'nvarchar(255)'
-                    comment = 'number too big for decimal, falling back to nvarchar(255)'
+                    dtype = 'nvarchar'
+                    params = [255]
+                    comment = 'number too big for decimal, defaulting to nvarchar(255)'
                 else:
                     ratio = min(MAX_PRECISION / precision, 1.5)
                     magnitude = int(magnitude * ratio)
                     scale = int(scale * ratio)
                     precision = magnitude + scale
-                    result = 'decimal(%s, %s)' % (precision, scale)
+                    dtype = 'decimal'
+                    params = [precision, scale]
         elif pd.api.types.is_datetime64_any_dtype(x):
-            result = 'datetime'
+            dtype = 'datetime'
         else:
-            result = 'nvarchar(255)'
-            comment = 'unable to infer type, defaulting to nvarchar(255);'
+            dtype = 'nvarchar'
+            params = [255]
+            comment = 'unable to infer type, defaulting to nvarchar(255)'
     
-    if has_null:
-        result += ' NULL'
-    
-    return result, comment
+    return dtype, params, has_null, comment
 
 
 def indent(str_arr, times=1, spaces=4):
@@ -107,8 +110,8 @@ def get_df_type(df, force_allow_null=False, sample=None, verbose=False):
     result = []
 
     for col in cols:
-        vartype, comment = get_type(df[col], force_allow_null=force_allow_null)
-        result.append([col, vartype, comment])
+        dtype, params, has_null, comment = get_type(df[col], force_allow_null=force_allow_null)
+        result.append([col, dtype, params, has_null, comment])
     return result
 
 
@@ -117,10 +120,9 @@ def cast_and_clean_df(df, df_types):
     result = df.copy()
 
     for col in df_types:
-        colname, vartype, comment = col
-        if 'decimal' in vartype:
-            # TODO: clean up this representation mess; shouldn't have to parse string in the first place
-            magnitude, scale = [int(x.strip()) for x in vartype.split('(')[1].split(')')[0].split(',')]
+        colname, dtype, params, has_null, comment = col
+        if dtype == 'decimal':
+            magnitude, scale = params
             result[colname] = result[colname].round(scale)
             if result[colname].isin([np.inf, -np.inf]).any():
                 warnings.warn('MS SQL Server does not support infinity. Replacing with NaN.')
@@ -130,14 +132,20 @@ def cast_and_clean_df(df, df_types):
 
 
 def get_create_statement(df_types, table_name):
-    template = '''CREATE TABLE %s (\n%s\n) ON [PRIMARY];'''
+    template = '''CREATE TABLE %s (\n%s\n);'''
 
     col_defs = []
     for col in df_types:
-        colname, vartype, comment = col
-        if comment != '':
-            col_defs.append('-- %s' % comment)
-        col_defs.append('[%s] %s' % (colname, vartype))
+        colname, dtype, params, has_null, comment = col
+        col_def = '[%s] %s' % (colname, dtype)
+        if len(params) > 0:
+            params = ','.join(str(x) for x in params)
+            col_def += '(%s)' % params
+        if has_null:
+            col_def += ' NULL'
+        if len(comment) > 0:
+            col_def += ' -- %s' % comment
+        col_defs.append(col_def)
     col_defs = ',\n'.join(indent(col_defs))
     
     return template % (table_name, col_defs)
