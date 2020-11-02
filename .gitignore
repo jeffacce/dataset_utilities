@@ -13,3 +13,5 @@ database.yml
 __pycache__
 !tests/test_data.csv
 !tests/database.yml
+*.swp
+coverage.xml

@@ -1,0 +1,16 @@
+filepath: ./tests/test_data.csv
+
+conn:
+  server: foobar
+  user: sa
+  password: j0wMYnzpDS4!2Py6
+  database: test_db
+  port: 1433
+  driver: "ODBC Driver 17 for SQL Server"
+
+query:
+  get_data: "
+    SELECT * FROM test_table
+  "
+
+table: test_table
