@@ -35,6 +35,7 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Install SQL Server
+      run: |
         wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/18.04/mssql-server-2019.list)"
         sudo apt-get update -y
@@ -51,3 +52,4 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
