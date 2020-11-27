@@ -45,6 +45,7 @@ jobs:
         echo PATH="$PATH:/opt/mssql-tools/bin" >> ~/.bash_profile
         echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
         source ~/.bashrc
+        sleep 10
         sudo /opt/mssql-tools/bin/sqlcmd -S "localhost" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
     - name: Test with pytest
       run: |
