@@ -1,11 +1,10 @@
 filepath: ./tests/test_data.csv
 
 conn:
-  server: localhost
+  server: localhost,1433
   user: sa
   password: j0wMYnzpDS4!2Py6
   database: test_db
-  port: 1433
   driver: "ODBC Driver 17 for SQL Server"
 
 query:

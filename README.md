@@ -98,11 +98,10 @@ The `conn` (connection) parameters are passed to `pyodbc` to create a connection
 ```yaml
 # ./config/my_dataset.yml
 conn:
-    server: sql-server.acme.com
+    server: sql-server.acme.com,1433
     database: sales
     user: acmeUser
     password: acmeUserPassword
-    port: 1433
     driver: 'ODBC Driver 17 for SQL Server'
 ```
 
@@ -146,11 +145,10 @@ Finally, we have a full configuration file:
 ```yaml
 # ./config/my_dataset.yml
 conn:
-    server: sql-server.acme.com
+    server: sql-server.acme.com,1433
     database: sales
     user: acmeUser
     password: acmeUserPassword
-    port: 1433
     driver: 'ODBC Driver 17 for SQL Server'
 
 query:
