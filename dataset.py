@@ -138,13 +138,13 @@ def get_create_statement(df_types, table_name):
     for col in df_types:
         colname, dtype, params, has_null, comment = col
         col_def = '[%s] %s' % (colname, dtype)
+        if len(comment) > 0:
+            col_defs.append('-- %s' % comment)
         if len(params) > 0:
             params = ','.join(str(x) for x in params)
             col_def += '(%s)' % params
         if has_null:
             col_def += ' NULL'
-        if len(comment) > 0:
-            col_def += ' -- %s' % comment
         col_defs.append(col_def)
     col_defs = ',\n'.join(indent(col_defs))
     
@@ -388,6 +388,7 @@ class sql_dataset(dataset):
             schema_def_query = get_create_statement(self.data_types, self.config['table'])
             if verbose:
                 print('Creating new table.')
+                print(schema_def_query)
             self.send_cmd(schema_def_query)
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
