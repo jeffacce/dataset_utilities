@@ -5,7 +5,7 @@ import numpy as np
 import requests
 
 
-def test_read_upload_bcp_query_overwrite_table(verbose=False):
+def test_read_upload_bcp_query_overwrite_table(verbose=True):
     sd = sql_dataset('./tests/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
@@ -13,7 +13,7 @@ def test_read_upload_bcp_query_overwrite_table(verbose=False):
     df_queried = sd.query().data
     return (df_queried == df_orig).all()
 
-def test_read_upload_bcp_query_overwrite_data(verbose=False):
+def test_read_upload_bcp_query_overwrite_data(verbose=True):
     sd = sql_dataset('./tests/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
@@ -21,7 +21,7 @@ def test_read_upload_bcp_query_overwrite_data(verbose=False):
     df_queried = sd.query().data
     return (df_queried == df_orig).all()
 
-def test_read_upload_pyodbc_query_overwrite_table(verbose=False):
+def test_read_upload_pyodbc_query_overwrite_table(verbose=True):
     sd = sql_dataset('./tests/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
@@ -29,7 +29,7 @@ def test_read_upload_pyodbc_query_overwrite_table(verbose=False):
     df_queried = sd.query().data
     return (df_queried == df_orig).all()
 
-def test_read_upload_pyodbc_query_overwrite_data(verbose=False):
+def test_read_upload_pyodbc_query_overwrite_data(verbose=True):
     sd = sql_dataset('./tests/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
