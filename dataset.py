@@ -421,13 +421,12 @@ class sql_dataset(dataset):
                 print('Cleaning up.')
             if os.path.exists(temp_filename + '.csv'):
                 os.remove(temp_filename + '.csv')
-            if os.path.exists(temp_filename + '.err'):
-                # delete error file if empty
-                f = open(temp_filename + '.err', 'r')
-                content = f.read()
-                f.close()
-                if len(content) == 0:
-                    os.remove(temp_filename + '.err')
+
+            # delete error file if empty
+            err_path = temp_filename + '.err'
+            if os.path.exists(err_path):
+                if os.stat(err_path).st_size == 0:
+                    os.remove(err_path)
         else:
             conn = pyodbc.connect(**self.config['conn'], autocommit=False)
             crsr = conn.cursor()
