@@ -323,6 +323,9 @@ class sql_dataset(dataset):
 
         data = []
         for chunk in chunks:
+            # fix pandas return None for NaN in object-typed columns
+            obj_cols = list(chunk.select_dtypes(include=['object']).columns.values)
+            chunk[obj_cols] = chunk[obj_cols].replace([None], np.nan)
             data.append(chunk)
         if len(data) > 0:
             self.data = pd.concat(data).reset_index(drop=True)
