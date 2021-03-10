@@ -19,6 +19,14 @@ def rand_dt_array(n):
     result = pd.to_datetime(result, unit='s')
     return result
 
+def rand_bool_array(n, na_ratio=0):
+    result = np.random.randint(0, 2, (n))
+    result = pd.Series(result).replace({0:False, 1:True})
+    if na_ratio > 0:
+        na_idx = np.random.choice(range(n), size=int(min(na_ratio, 1) * n), replace=False)
+        result.loc[na_idx] = np.nan
+    return result
+
 def empty_series(n):
     return pd.Series([np.nan] * n)
 
@@ -31,6 +39,8 @@ def rand_df(n):
         'float': rand_float_array(n, na_ratio=0.2),
         'float2': rand_float_array(n, na_ratio=0),
         'name': rand_str_array(n, 30),
+        'flag': rand_bool_array(n, na_ratio=0.2),
+        'flag2': rand_bool_array(n, na_ratio=0),
     })
 
 df = rand_df(100000)

@@ -113,6 +113,13 @@ def test_get_type_str():
     assert comment == ''
 
 
+def test_get_type_bool():
+    dtype, params, has_null, comment = get_type(pd.Series([True, False]))
+    assert dtype == 'bit'
+    assert params == []
+    assert has_null == False
+    assert comment == ''
+
 def test_get_type_int():
     dtype, params, has_null, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
     assert dtype == 'bit'
