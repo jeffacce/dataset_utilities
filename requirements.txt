@@ -1,6 +1,6 @@
-numpy==1.19.1
-tqdm==4.48.0
-pandas==1.0.5
-requests==2.24.0
-pyodbc==4.0.30
-PyYAML==5.3.1
+numpy>=1.19.1,<2.0
+tqdm>=4.48.0,<5.0
+pandas>=1.0.5,<2.0
+requests>=2.24.0,<3.0
+pyodbc>=4.0.30,<5.0
+PyYAML>=5.3.1,<6.0
