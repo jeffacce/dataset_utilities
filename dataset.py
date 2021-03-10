@@ -356,10 +356,16 @@ class sql_dataset(dataset):
         if not self.ping(verbose=verbose):
             raise requests.ConnectionError('Failed to connect to database.')
 
-        conn = pyodbc.connect(**self.config['conn'])
+        conn = pyodbc.connect(**self.config['conn'], autocommit=False)
         crsr = conn.cursor()
-        crsr.execute(cmd)
-        conn.commit()
+        try:
+            crsr.execute(cmd)
+        except pyodbc.Error as err:
+            conn.rollback()
+            conn.close()
+            raise err
+        else:
+            conn.commit()
         conn.close()
 
     def upload(self, mode='append', bcp=True, verbose=False, schema_sample=None, chunksize=1000):
@@ -455,8 +461,15 @@ class sql_dataset(dataset):
                 chunk = self.data.iloc[i*chunksize : (i+1)*chunksize].values
                 sql = 'INSERT INTO %s (%s) VALUES (%s)' % (self.config['table'], colnames, blanks)
                 chunk[pd.isna(chunk)] = None  # cast [pd.NA, np.nan] to None for pyodbc
-                crsr.executemany(sql, chunk.tolist())
-                conn.commit()
+
+                try:
+                    crsr.executemany(sql, chunk.tolist())
+                except pyodbc.Error as err:
+                    conn.rollback()
+                    conn.close()
+                    raise err
+                else:
+                    conn.commit()
             conn.close()
         
     def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
