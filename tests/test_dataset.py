@@ -244,8 +244,8 @@ def test_cast_and_clean_df():
     assert -np.inf not in df_clean
     assert False not in df_clean
     assert True not in df_clean
-    boolcol_clean = pd.Series([pd.NA, 0, 1]).astype('Int64').rename('boolcol')
-    boolcol2_clean = pd.Series([0,1,1]).astype('Int64').rename('boolcol2')
-    pd.testing.assert_series_equal(df_clean['boolcol'], boolcol_clean)
-    pd.testing.assert_series_equal(df_clean['boolcol2'], boolcol2_clean)
+    boolcol_clean = pd.Series([pd.NA, 0, 1]).astype('Int64')
+    boolcol2_clean = pd.Series([0,1,1]).astype('Int64')
+    pd.testing.assert_series_equal(df_clean['boolcol'], boolcol_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['boolcol2'], boolcol2_clean, check_names=False)
 
