@@ -31,6 +31,14 @@ def rand_bool_array(n, na_ratio=0):
     result = result.replace({0:False, 1:True})
     return result
 
+def rand_int_array(n, lower, upper, na_ratio=0):
+    result = rng.randint(lower, upper, (n)) 
+    result = pd.Series(result).astype('Int64')
+    if na_ratio > 0:
+        na_idx = rng.choice(range(n), size=int(min(na_ratio, 1) * n), replace=False)
+        result.loc[na_idx] = pd.NA 
+    return result
+
 def empty_series(n):
     return pd.Series([np.nan] * n)
 
@@ -39,12 +47,25 @@ def rand_df(n):
     return pd.DataFrame({
         'dt': rand_dt_array(n),
         'uid': rand_str_array(n, 50),
-        'empty_col': empty_series(n),
-        'float': rand_float_array(n, na_ratio=0.2),
-        'float2': rand_float_array(n, na_ratio=0),
         'name': rand_str_array(n, 30),
-        'flag': rand_bool_array(n, na_ratio=0.2),
-        'flag2': rand_bool_array(n, na_ratio=0),
+        'empty_col': empty_series(n),
+        'float': rand_float_array(n, na_ratio=0),
+        'float_k': rand_float_array(n, na_ratio=0) * 1e3,
+        'float_m': rand_float_array(n, na_ratio=0) * 1e6,
+        'float_b': rand_float_array(n, na_ratio=0) * 1e9,
+        'float_na': rand_float_array(n, na_ratio=0.2),
+        'bit': rand_int_array(n, 0, 2, na_ratio=0),
+        'bit_na': rand_int_array(n, 0, 2, na_ratio=0.2),
+        'tinyint': rand_int_array(n, 0, 2**8, na_ratio=0),
+        'tinyint_na': rand_int_array(n, 0, 2**8, na_ratio=0.2),
+        'smallint': rand_int_array(n, -2**15, 2**15, na_ratio=0),
+        'smallint_na': rand_int_array(n, -2**15, 2**15, na_ratio=0.2),
+        'int': rand_int_array(n, -2**31, 2**31, na_ratio=0),
+        'int_na': rand_int_array(n, -2**31, 2**31, na_ratio=0.2),
+        'bigint': rand_int_array(n, -2**63, 2**63, na_ratio=0),
+        'bigint_na': rand_int_array(n, -2**63, 2**63, na_ratio=0.2),
+        'bool': rand_bool_array(n, na_ratio=0),
+        'bool_na': rand_bool_array(n, na_ratio=0.2),
     })
 
 
