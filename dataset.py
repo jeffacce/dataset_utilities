@@ -452,9 +452,10 @@ class sql_dataset(dataset):
             if verbose:
                 batch_range = tqdm(batch_range)
             for i in batch_range:
-                chunk = self.data.iloc[i*chunksize : (i+1)*chunksize]
+                chunk = self.data.iloc[i*chunksize : (i+1)*chunksize].values
                 sql = 'INSERT INTO %s (%s) VALUES (%s)' % (self.config['table'], colnames, blanks)
-                crsr.executemany(sql, chunk.values.tolist())
+                chunk[pd.isna(chunk)] = None  # cast [pd.NA, np.nan] to None for pyodbc
+                crsr.executemany(sql, chunk.tolist())
                 conn.commit()
             conn.close()
         
