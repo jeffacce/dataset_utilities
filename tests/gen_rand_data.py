@@ -21,10 +21,11 @@ def rand_dt_array(n):
 
 def rand_bool_array(n, na_ratio=0):
     result = np.random.randint(0, 2, (n))
-    result = pd.Series(result).replace({0:False, 1:True})
+    result = pd.Series(result)
     if na_ratio > 0:
         na_idx = np.random.choice(range(n), size=int(min(na_ratio, 1) * n), replace=False)
         result.loc[na_idx] = np.nan
+    result = result.replace({0:False, 1:True})
     return result
 
 def empty_series(n):
