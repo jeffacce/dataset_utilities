@@ -56,13 +56,18 @@ def get_type(x, force_allow_null=False):
                 dtype = 'date'
             elif type(x.iloc[0]) is datetime.datetime or type(x.iloc[0]) is pd.Timestamp:
                 dtype = 'datetime'
+            elif set(x) == set([False, True]):
+                # NAs are dropped at the start of this function.
+                # But if the original bool series had NAs,
+                # its dtype will be object, not bool (numeric).
+                dtype = 'bit'
             else:
                 size = min(int(pd.Series(x.unique()).astype(str).str.len().max() * 2), 4000)
                 dtype = 'nvarchar'
                 params = [size]
         elif pd.api.types.is_numeric_dtype(x):
             magnitude, scale = magnitude_and_scale(x)
-            if (scale == 0) or pd.api.types.is_integer_dtype(x):
+            if (scale == 0) or pd.api.types.is_integer_dtype(x) or pd.api.types.is_bool_dtype(x):
                 if ((x >= 0) & (x <= 1)).all():
                     dtype = 'bit'
                 elif ((x >= 0) & (x <= 2**8-1)).all():
@@ -127,6 +132,10 @@ def cast_and_clean_df(df, df_types):
             if result[colname].isin([np.inf, -np.inf]).any():
                 warnings.warn('MS SQL Server does not support infinity. Replacing with NaN.')
                 result[colname].replace([np.inf, -np.inf], np.nan, inplace=True)
+        elif dtype == 'bit':
+            # cast boolean to 0/1/NaN, using Int64 dtype (pandas>=0.24)
+            result[colname].replace({False: 0, True: 1}, inplace=True)
+            result[colname] = result[colname].astype('Int64')
     
     return result
 
