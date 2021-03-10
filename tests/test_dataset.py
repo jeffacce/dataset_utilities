@@ -120,6 +120,13 @@ def test_get_type_bool():
     assert has_null == False
     assert comment == ''
 
+    dtype, params, has_null, comment = get_type(pd.Series([True, False, np.nan]))
+    assert dtype == 'bit'
+    assert params == []
+    assert has_null == True
+    assert comment == ''
+
+
 def test_get_type_int():
     dtype, params, has_null, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
     assert dtype == 'bit'
@@ -214,12 +221,16 @@ df = pd.DataFrame({
     'intcol': pd.Series([1,2,3]),
     'strcol': pd.Series(['a', 'b', 'c']),
     'floatcol': pd.Series([np.inf, 1.100, 2.100]),
+    'boolcol': pd.Series([np.nan, False, True]),
+    'boolcol2': pd.Series([False, True, True]),
 })
 
 df_type = [
     ['intcol', 'tinyint', [], False, ''],
     ['strcol', 'nvarchar', [2], False, ''],
-    ['floatcol', 'decimal', [2, 1], True, '']
+    ['floatcol', 'decimal', [2, 1], True, ''],
+    ['boolcol', 'bit', [], True, ''],
+    ['boolcol2', 'bit', [], False, ''],
 ]
 
 def test_get_df_type():
@@ -231,3 +242,10 @@ def test_cast_and_clean_df():
         df_clean = cast_and_clean_df(df, df_type)
     assert np.inf not in df_clean
     assert -np.inf not in df_clean
+    assert False not in df_clean
+    assert True not in df_clean
+    boolcol_clean = pd.Series([pd.NA, 0, 1]).astype('Int64').rename('boolcol')
+    boolcol2_clean = pd.Series([0,1,1]).astype('Int64').rename('boolcol2')
+    pd.testing.assert_series_equal(df_clean['boolcol'], boolcol_clean)
+    pd.testing.assert_series_equal(df_clean['boolcol2'], boolcol2_clean)
+
