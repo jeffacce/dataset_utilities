@@ -219,6 +219,7 @@ def test_indent():
 
 df = pd.DataFrame({
     'intcol': pd.Series([1,2,3]),
+    'intcol2': pd.Series([1,2,np.nan]),
     'strcol': pd.Series(['a', 'b', 'c']),
     'floatcol': pd.Series([np.inf, 1.100, 2.100]),
     'boolcol': pd.Series([np.nan, False, True]),
@@ -227,6 +228,7 @@ df = pd.DataFrame({
 
 df_type = [
     ['intcol', 'tinyint', [], False, ''],
+    ['intcol2', 'tinyint', [], True, ''],
     ['strcol', 'nvarchar', [2], False, ''],
     ['floatcol', 'decimal', [2, 1], True, ''],
     ['boolcol', 'bit', [], True, ''],
@@ -244,8 +246,13 @@ def test_cast_and_clean_df():
     assert -np.inf not in df_clean
     assert False not in df_clean
     assert True not in df_clean
+
     boolcol_clean = pd.Series([pd.NA, 0, 1]).astype('Int64')
-    boolcol2_clean = pd.Series([0,1,1]).astype('Int64')
+    boolcol2_clean = pd.Series([0, 1, 1]).astype('Int64')
+    intcol_clean = pd.Series([1, 2, 3]).astype('Int64')
+    intcol2_clean = pd.Series([1, 2, pd.NA]).astype('Int64')
     pd.testing.assert_series_equal(df_clean['boolcol'], boolcol_clean, check_names=False)
     pd.testing.assert_series_equal(df_clean['boolcol2'], boolcol2_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['intcol'], intcol_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['intcol2'], intcol2_clean, check_names=False)
 

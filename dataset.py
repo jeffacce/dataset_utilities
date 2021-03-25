@@ -121,7 +121,6 @@ def get_df_type(df, force_allow_null=False, sample=None, verbose=False):
 
 
 def cast_and_clean_df(df, df_types):
-    # TODO: determine if casting for other types is necessary
     result = df.copy()
 
     for col in df_types:
@@ -132,9 +131,12 @@ def cast_and_clean_df(df, df_types):
             if result[colname].isin([np.inf, -np.inf]).any():
                 warnings.warn('MS SQL Server does not support infinity. Replacing with NaN.')
                 result[colname].replace([np.inf, -np.inf], np.nan, inplace=True)
-        elif dtype == 'bit':
-            # cast boolean to 0/1/NaN, using Int64 dtype (pandas>=0.24)
-            result[colname].replace({False: 0, True: 1}, inplace=True)
+        elif dtype in ['bit', 'tinyint', 'smallint', 'int', 'bigint']:
+            if dtype == 'bit':
+                # cast boolean to 0/1/NaN
+                result[colname].replace({False: 0, True: 1}, inplace=True)
+            # Int64 dtype (pandas>=0.24) to deal with NaN casting int to float
+            # this fixes int types having decimal points when uploaded into nvarchar columns
             result[colname] = result[colname].astype('Int64')
     
     return result
