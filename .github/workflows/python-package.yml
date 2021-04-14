@@ -45,7 +45,12 @@ jobs:
         echo PATH="$PATH:/opt/mssql-tools/bin" >> ~/.bash_profile
         echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
         source ~/.bashrc
+        echo "======= SLEEP 10 ======="
         sleep 10
+        echo "====== SLEEP ENDS ======"
+        echo "====== SQL STATUS ======"
+        sudo systemctl status mssql-server
+        echo "======= /STATUS ========"
         sudo /opt/mssql-tools/bin/sqlcmd -S "localhost,1433" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
     - name: Test with pytest
       run: |
