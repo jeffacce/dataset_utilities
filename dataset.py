@@ -242,6 +242,7 @@ class dataset:
             self.data.to_excel(filepath, index=False, encoding='utf-8-sig')
         else:
             raise ValueError('Only .h5/hdf/hdf5/csv/xls/xlsx supported.')
+        return self
     
     def transform(self, transform_function=None):
         if not transform_function is None:
