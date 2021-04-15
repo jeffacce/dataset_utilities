@@ -50,7 +50,6 @@ jobs:
         echo "====== SLEEP ENDS ======"
         echo "====== SQL STATUS ======"
         sudo systemctl status mssql-server
-        ping 127.0.0.1
         nc -z localhost 1433
         echo "======= /STATUS ========"
         sudo /opt/mssql-tools/bin/sqlcmd -S "localhost,1433" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
