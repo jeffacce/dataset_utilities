@@ -52,8 +52,7 @@ jobs:
         done
         date
         echo "======= SQL STATUS ======="
-        sudo systemctl status mssql-server
-        sudo /opt/mssql-tools/bin/sqlcmd -S "localhost,1433" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
+        sudo /opt/mssql-tools/bin/sqlcmd -S "127.0.0.1,1433" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
     - name: Test with pytest
       run: |
         pytest
