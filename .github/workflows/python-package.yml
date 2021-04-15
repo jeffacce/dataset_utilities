@@ -37,7 +37,7 @@ jobs:
     - name: Install SQL Server
       run: |
         wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-        sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/18.04/mssql-server-2019.list)"
+        sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/mssql-server-2019.list)"
         sudo apt-get update -y
         sudo apt-get install -y mssql-server
         sudo MSSQL_SA_PASSWORD='j0wMYnzpDS4!2Py6' MSSQL_PID='developer' /opt/mssql/bin/mssql-conf -n setup accept-eula
@@ -50,6 +50,8 @@ jobs:
         echo "====== SLEEP ENDS ======"
         echo "====== SQL STATUS ======"
         sudo systemctl status mssql-server
+        ping 127.0.0.1
+        nc -z localhost 1433
         echo "======= /STATUS ========"
         sudo /opt/mssql-tools/bin/sqlcmd -S "localhost,1433" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
     - name: Test with pytest
