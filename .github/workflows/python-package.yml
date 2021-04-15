@@ -54,6 +54,9 @@ jobs:
         echo "======= SQL STATUS ======="
         sudo systemctl status mssql-server
         echo "======== /STATUS ========="
+        echo "======= /etc/hosts ======="
+        cat /etc/hosts
+        echo "=========================="
         sudo /opt/mssql-tools/bin/sqlcmd -S "127.0.0.1,1433" -U "SA" -P "j0wMYnzpDS4!2Py6" -Q "CREATE DATABASE test_db"
     - name: Test with pytest
       run: |
