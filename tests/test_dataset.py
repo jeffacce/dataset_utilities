@@ -112,6 +112,12 @@ def test_get_type_str():
     assert has_null == True
     assert comment == ''
 
+    dtype, params, has_null, comment = get_type(pd.Series(['', '', '', '', '']))
+    assert dtype == 'nvarchar'
+    assert params == [255]
+    assert has_null == False
+    assert comment == 'zero-length string column, defaulting to nvarchar(255)'
+
 
 def test_get_type_bool():
     dtype, params, has_null, comment = get_type(pd.Series([True, False]))

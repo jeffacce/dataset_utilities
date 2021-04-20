@@ -63,6 +63,11 @@ def get_type(x, force_allow_null=False):
                 dtype = 'bit'
             else:
                 size = min(int(pd.Series(x.unique()).astype(str).str.len().max() * 2), 4000)
+                if size == 0:
+                    # if the entire column is empty but non-null strings,
+                    # set default to nvarchar(255)
+                    size = 255
+                    comment = 'zero-length string column, defaulting to nvarchar(255)'
                 dtype = 'nvarchar'
                 params = [size]
         elif pd.api.types.is_numeric_dtype(x):

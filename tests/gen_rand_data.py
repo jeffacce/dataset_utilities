@@ -44,7 +44,7 @@ def empty_series(n):
 
 def rand_df(n):
     # gen random data of datetime, string, and float
-    return pd.DataFrame({
+    result = pd.DataFrame({
         'dt': rand_dt_array(n),
         'uid': rand_str_array(n, 50),
         'name': rand_str_array(n, 30),
@@ -67,6 +67,7 @@ def rand_df(n):
         'bool': rand_bool_array(n, na_ratio=0),
         'bool_na': rand_bool_array(n, na_ratio=0.2),
     })
+    result['empty_str_col'] = ''
 
 
 if __name__ == '__main__':
