@@ -68,6 +68,7 @@ def rand_df(n):
         'bool_na': rand_bool_array(n, na_ratio=0.2),
     })
     result['empty_str_col'] = ''
+    return result
 
 
 if __name__ == '__main__':
