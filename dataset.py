@@ -261,17 +261,24 @@ class dataset:
 class sql_dataset(dataset):
     def __init__(self, config_path=None):
         super().__init__(config_path=config_path)
-        if 'conn' in self.config:
-            self.host_config_args = [
-                '-S', self.config['conn']['server'],
-                '-d', self.config['conn']['database'],
-                '-U', self.config['conn']['user'],
-                '-P', self.config['conn']['password'],
-            ]
     
-    def ping(self, max_retries=3, delay=5, verbose=False):
+    def _format_host_config_args(self, conn):
+        result = [
+            '-S', conn['server'],
+            '-d', conn['database'],
+        ]
+        if ('user' in conn) or ('uid' in conn):
+            result += ['-U', conn.get('user') or conn.get('uid')]
+        if ('password' in conn) or ('pwd' in conn):
+            result += ['-P', conn.get('password') or conn.get('pwd')]
+        if ('trusted_connection') in [x.lower() for x in conn.keys()]:
+            result += ['-T']
+        return result
+    
+    def ping(self, conn=None, max_retries=3, delay=5, verbose=False):
         '''
         Ping a database (send a `SELECT 1` query), and return whether successful (True/False).
+        `conn`: connection dictionary, containing 'server', 'database', 'user', 'password'.
         `max_retries`: maximum number of tries to ping the database.
         `delay`: initial delay after failure (seconds). Each successive delay will be doubled in time.
         `verbose`: verbose output. Default False.
@@ -443,7 +450,7 @@ class sql_dataset(dataset):
                 '-e', temp_filename + '.err',
                 '-F2',
                 '-b', str(int(chunksize)),
-                *self.host_config_args,
+                *self._format_host_config_args(self.config['conn']),
             ], stdout=stdout).wait()
 
             # clean up temp files
