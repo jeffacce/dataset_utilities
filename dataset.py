@@ -299,7 +299,7 @@ class sql_dataset(dataset):
                 print('Failed to connect.')
         return success
 
-    def query(self, get_data=None, get_row_count=None, chunksize=1000):
+    def query(self, get_data=None, get_row_count=None, chunksize=1000, **template_vars):
         '''
         Query a database.
         `get_data`:
@@ -310,7 +310,10 @@ class sql_dataset(dataset):
             Display a progress bar if supplied in config or as an argument here.
             If both are supplied, argument always overrides config.
         `chunksize`:
-            chunk size. Default 1000.
+            Chunk size. Default 1000.
+        `template_vars`:
+            Any additional keyword arguments are interpreted as template variables
+            and used to replace variable appearances like `{xyz}` in the query string.
         '''
         if not self.ping():
             raise requests.ConnectionError('Failed to connect to database.')
@@ -330,10 +333,11 @@ class sql_dataset(dataset):
         conn = pyodbc.connect(**self.config['conn'])
         
         if not (get_row_count is None):
+            get_row_count = get_row_count.format(**template_vars)
             row_count = pd.read_sql(get_row_count, conn).values.item()
             chunk_count = np.ceil(row_count / chunksize).astype(int)
 
-        chunks = pd.read_sql(get_data, conn, chunksize=chunksize)
+        chunks = pd.read_sql(get_data.format(**template_vars), conn, chunksize=chunksize)
         
         if not (get_row_count is None):
             chunks = tqdm(chunks, total=chunk_count)
