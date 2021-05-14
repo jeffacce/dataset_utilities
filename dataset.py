@@ -367,10 +367,10 @@ class sql_dataset(dataset):
                 dtype = row['DATA_TYPE']
                 has_null = row['IS_NULLABLE']
                 comment = ''
-                if col.lower() in ['numeric', 'decimal']:
-                    params = [row['NUMERIC_PRECISION'], row['NUMERIC_SCALE']]
-                elif col.lower() in ['nvarchar', 'varchar']:
-                    params = [row['CHARACTER_MAXIMUM_LENGTH']]
+                if dtype.lower() in ['numeric', 'decimal']:
+                    params = [int(row['NUMERIC_PRECISION']), int(row['NUMERIC_SCALE'])]
+                elif dtype.lower() in ['nvarchar', 'varchar']:
+                    params = [int(row['CHARACTER_MAXIMUM_LENGTH'])]
                 else:
                     params = []
                 result.append([col, dtype, params, has_null, comment])
@@ -380,7 +380,7 @@ class sql_dataset(dataset):
 
     def _table_exists(self, conn, table):
         # TODO: conn is a dict. Check if this is desired.
-        query = "IF OBJECT_ID('%s', 'U') IS NULL SELECT 0 ELSE SELECT 1"
+        query = "IF OBJECT_ID('%s', 'U') IS NULL SELECT 0 ELSE SELECT 1" % table
         conn = self._connect(conn)
         result = pd.read_sql(query, conn).values.item() == 1
         return result
@@ -473,6 +473,7 @@ class sql_dataset(dataset):
         `chunksize`: chunk size. Default 1000.
         `verbose`: verbose output. Default False.
         '''
+        # TODO: self.config['conn'], self.config['table'] needs to refactored during API change.
 
         # TODO: detect df_types from df; compare to df_types from table. If df cannot fit in table: if truncate, truncate silently; else, raise errors.
         # this is to enable auto-truncate for already created tables.
@@ -481,17 +482,18 @@ class sql_dataset(dataset):
 
         # get column type definitions and cast data (deals with float errors)
         if verbose:
-            print('Determining data types and preprocessing data.')
-        self.data_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
-        self.data = cast_and_clean_df(self.data, self.data_types)
-
+            print('Determining data types.')
+        
         if mode == 'append':
-            pass
+            df_types = self._get_table_schema(self.config['conn'], self.config['table'])
         elif mode == 'overwrite_data':
+            df_types = self._get_table_schema(self.config['conn'], self.config['table'])
             if verbose:
                 print('Deleting data from database.')
             self.send_cmd('TRUNCATE TABLE %s;' % self.config['table'])
         elif mode == 'overwrite_table':
+            df_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
+            
             # drop old table
             if verbose:
                 print('Dropping old table.')
@@ -499,13 +501,17 @@ class sql_dataset(dataset):
             self.send_cmd("IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s;" % (self.config['table'], self.config['table']))
 
             # create new table
-            schema_def_query = get_create_statement(self.data_types, self.config['table'])
+            schema_def_query = get_create_statement(df_types, self.config['table'])
             if verbose:
                 print('Creating new table.')
                 print(schema_def_query)
             self.send_cmd(schema_def_query)
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
+        
+        if verbose:
+            print('Preprocessing data.')
+        self.data = cast_and_clean_df(self.data, df_types)
 
         # try to connect even if we're using BCP,
         # since BCP doesn't catch connection errors
