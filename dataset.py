@@ -62,18 +62,27 @@ def get_type(x, force_allow_null=False):
                 # its dtype will be object, not bool (numeric).
                 dtype = 'bit'
             else:
-                size = min(int(pd.Series(x.unique()).astype(str).str.len().max() * 2), 4000)
-                if size == 0:
+                dtype = 'nvarchar'
+                size = int(pd.Series(x.unique()).astype(str).str.len().max())
+                if size > 4000:
+                    comment = 'Maximum string length is %s. Using nvarchar(max).' % size
+                    size = 'max'
+                    warnings.warn(comment)
+                elif size == 0:
                     # if the entire column is empty but non-null strings,
                     # set default to nvarchar(255)
                     size = 255
                     comment = 'zero-length string column, defaulting to nvarchar(255)'
-                dtype = 'nvarchar'
+                else:
+                    size = min(int(size * 2), 4000)
                 params = [size]
         elif pd.api.types.is_numeric_dtype(x):
             magnitude, scale = magnitude_and_scale(x)
             if (scale == 0) or pd.api.types.is_integer_dtype(x) or pd.api.types.is_bool_dtype(x):
-                if ((x >= 0) & (x <= 1)).all():
+                if ((x == 0).all()):
+                    dtype = 'int'
+                    comment = 'column contains only zeros; defaulting to int'
+                elif ((x >= 0) & (x <= 1)).all():
                     dtype = 'bit'
                 elif ((x >= 0) & (x <= 2**8-1)).all():
                     dtype = 'tinyint'
@@ -125,8 +134,19 @@ def get_df_type(df, force_allow_null=False, sample=None, verbose=False):
     return result
 
 
-def cast_and_clean_df(df, df_types):
+def cast_and_clean_df(
+    df,
+    df_types=None,
+    truncate=False,
+    force_allow_null=False,
+    sample=None,
+    verbose=False,
+):
     result = df.copy()
+
+    if df_types is None:
+        df_types = get_df_type(df, force_allow_null=force_allow_null, sample=sample, verbose=verbose)
+        truncate = True  # safe to truncate since df_types are derived from the actual data
 
     for col in df_types:
         colname, dtype, params, has_null, comment = col
@@ -143,7 +163,24 @@ def cast_and_clean_df(df, df_types):
             # Int64 dtype (pandas>=0.24) to deal with NaN casting int to float
             # this fixes int types having decimal points when uploaded into nvarchar columns
             result[colname] = result[colname].astype('Int64')
+        elif dtype in ['varchar', 'nvarchar']:
+            if not result[colname].isna().all():
+                size = result[colname].dropna().astype(str).str.len().max()
+                if size > params[0]:
+                    msg = '[{colname}] max length ({size}) exceeds {dtype}({params[0]}).'.format(
+                        colname=colname,
+                        size=size,
+                        dtype=dtype,
+                        params=params,
+                    )
+                    if truncate:
+                        if verbose:
+                            print(msg)
+                        result[colname] = result[colname].str[:size]
+                    else:
+                        warnings.warn(msg + ' Specify `truncate=True` to force truncation.')
     
+
     return result
 
 
@@ -275,21 +312,23 @@ class sql_dataset(dataset):
             result += ['-T']
         return result
     
-    def ping(self, conn=None, max_retries=3, delay=5, verbose=False):
+    def _connect(self, conn, max_retries=3, delay=5, verbose=False, **kwargs):
         '''
-        Ping a database (send a `SELECT 1` query), and return whether successful (True/False).
-        `conn`: connection dictionary, containing 'server', 'database', 'user', 'password'.
+        Connect to a database with retries.
+        Returns a pyodbc connection (success), or raises `ConnectionError` (failure).
+        `conn`: connection config dictionary for `pyodbc`.
         `max_retries`: maximum number of tries to ping the database.
         `delay`: initial delay after failure (seconds). Each successive delay will be doubled in time.
         `verbose`: verbose output. Default False.
+        `kwargs`: extra keyword arguments are passed to `pyodbc.connect`.
         '''
         success = False
         retries = 0
         while (not success) and retries < max_retries:
             try:
                 if verbose:
-                    print('Pinging database... Try %s/%s' % (retries + 1, max_retries))
-                conn = pyodbc.connect(**self.config['conn'])
+                    print('Connecting to database... Try %s/%s' % (retries + 1, max_retries))
+                conn = pyodbc.connect(**self.config['conn'], **kwargs)
                 result = pd.read_sql('SELECT 1;', conn).values.item()
                 success = (result == 1)
             except:
@@ -299,12 +338,52 @@ class sql_dataset(dataset):
                     print('- Retry in %s seconds.' % delay)
                 time.sleep(delay)
                 delay *= 2 # exponential decay for retry delay
-        if verbose:
-            if success:
+        if success:
+            if verbose:
                 print('Connected.')
-            else:
+        else:
+            if verbose:
                 print('Failed to connect.')
-        return success
+            raise requests.ConnectionError('Failed to connect to database.')
+        return conn
+    
+    def _get_table_schema(self, conn, table):
+        # TODO: conn is a dict. Check if this is desired.
+        template = '''
+            SELECT
+                COLUMN_NAME, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = '%s'
+        '''
+        query = template % table
+        if self._table_exists(conn, table):
+            conn = self._connect(conn)
+            df = pd.read_sql(query, conn)
+            result = []
+            for i in range(len(df)):
+                row = df.iloc[i,:]
+                # convert row to [col, dtype, params, has_null, comment]
+                col = row['COLUMN_NAME']
+                dtype = row['DATA_TYPE']
+                has_null = row['IS_NULLABLE']
+                comment = ''
+                if col.lower() in ['numeric', 'decimal']:
+                    params = [row['NUMERIC_PRECISION'], row['NUMERIC_SCALE']]
+                elif col.lower() in ['nvarchar', 'varchar']:
+                    params = [row['CHARACTER_MAXIMUM_LENGTH']]
+                else:
+                    params = []
+                result.append([col, dtype, params, has_null, comment])
+        else:
+            raise ValueError('Table %s does not exist.' % table)
+        return result
+
+    def _table_exists(self, conn, table):
+        # TODO: conn is a dict. Check if this is desired.
+        query = "IF OBJECT_ID('%s', 'U') IS NULL SELECT 0 ELSE SELECT 1"
+        conn = self._connect(conn)
+        result = pd.read_sql(query, conn).values.item() == 1
+        return result
 
     def query(self, get_data=None, get_row_count=None, chunksize=1000, **template_vars):
         '''
@@ -322,9 +401,6 @@ class sql_dataset(dataset):
             Any additional keyword arguments are interpreted as template variables
             and used to replace variable appearances like `{xyz}` in the query string.
         '''
-        if not self.ping():
-            raise requests.ConnectionError('Failed to connect to database.')
-
         if get_data is None:
             # left part is evaluated before the right part
             if ('query' in self.config) and ('get_data' in self.config['query']):
@@ -337,7 +413,7 @@ class sql_dataset(dataset):
                 if ('query' in self.config) and ('get_row_count' in self.config['query']):
                     get_row_count = self.config['query']['get_row_count']
         
-        conn = pyodbc.connect(**self.config['conn'])
+        conn = self._connect(self.config['conn'])
         
         if not (get_row_count is None):
             get_row_count = get_row_count.format(**template_vars)
@@ -372,10 +448,7 @@ class sql_dataset(dataset):
         `cmd`: SQL query to send.
         `verbose`: verbose output. Default False.
         '''
-        if not self.ping(verbose=verbose):
-            raise requests.ConnectionError('Failed to connect to database.')
-
-        conn = pyodbc.connect(**self.config['conn'], autocommit=False)
+        conn = self._connect(self.config['conn'], autocommit=False)
         crsr = conn.cursor()
         try:
             crsr.execute(cmd)
@@ -387,7 +460,7 @@ class sql_dataset(dataset):
             conn.commit()
         conn.close()
 
-    def upload(self, mode='append', bcp=True, verbose=False, schema_sample=None, chunksize=1000):
+    def upload(self, mode='append', bcp=True, truncate=False, schema_sample=None, chunksize=1000, verbose=False):
         '''
         Upload data to database.
         `mode`:
@@ -395,12 +468,16 @@ class sql_dataset(dataset):
             - `overwrite_data`: truncate the existing table and upload data.
             - `overwrite_table`: drop the existing table, create a new table, and upload data.
         `bcp`: use MS SQL `bcp` utilities. Default True. If False, uses pyodbc with `fast_executemany`.
-        `verbose`: verbose output. Default False.
+        `truncate`: whether to silently truncate values that are too long to fit. (True = truncate silently; False = raise warnings)
         `schema_sample`: # of rows scanned for automatically generating the CREATE schema. Default None (scan the entire dataframe).
         `chunksize`: chunk size. Default 1000.
+        `verbose`: verbose output. Default False.
         '''
-        if not self.ping(verbose=verbose):
-            raise requests.ConnectionError('Failed to connect to database.')
+
+        # TODO: detect df_types from df; compare to df_types from table. If df cannot fit in table: if truncate, truncate silently; else, raise errors.
+        # this is to enable auto-truncate for already created tables.
+        # for mode=append, overwrite_data: cast and clean df, truncate with warning unless silent truncation
+        # for mode=overwrite_table: cast and clean df, truncate without warning...? or still with warning? (can we assume that df_types can always hold the df, if generated?)
 
         # get column type definitions and cast data (deals with float errors)
         if verbose:
@@ -429,6 +506,10 @@ class sql_dataset(dataset):
             self.send_cmd(schema_def_query)
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
+
+        # try to connect even if we're using BCP,
+        # since BCP doesn't catch connection errors
+        conn = self._connect(self.config['conn'], autocommit=False)
 
         if bcp:
             temp_filename = 'bcp_temp_%s' % uuid.uuid4()
@@ -465,7 +546,6 @@ class sql_dataset(dataset):
                 if os.stat(err_path).st_size == 0:
                     os.remove(err_path)
         else:
-            conn = pyodbc.connect(**self.config['conn'], autocommit=False)
             crsr = conn.cursor()
             crsr.fast_executemany = True
             
@@ -489,7 +569,8 @@ class sql_dataset(dataset):
                     raise err
                 else:
                     conn.commit()
-            conn.close()
+        
+        conn.close()
         
     def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
         warnings.warn("`sql_dataset.upload_bcp` is deprecated. Use `sql_dataset.upload(bcp=True)` instead.", DeprecationWarning)
