@@ -41,7 +41,7 @@ def test_read_upload_query_pyodbc(gen_test_csv, verbose=True):
     df_queried = sd.query().data
     pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
 
-def test_ping_fake_database_raises_connection_error(gen_test_csv):
-    sd = sql_dataset('./tests/fake_database.yml').read()
-    assert not sd.ping(max_retries=1)
-
+def test_connect_fake_database_raises_connection_error(verbose=True):
+    sd = sql_dataset('./tests/fake_database.yml')
+    with pytest.raises(requests.ConnectionError):
+        sd._connect(sd.config['conn'], max_retries=1, delay=5, verbose=False)
