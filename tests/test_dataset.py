@@ -1,8 +1,12 @@
 import pytest
 from ..dataset import (
-    magnitude_and_scale, get_type,
-    _try_import, indent, get_df_type,
-    cast_and_clean_df
+    magnitude_and_scale,
+    get_type,
+    _try_import,
+    indent,
+    get_df_type,
+    cast_and_clean_df,
+    sql_dataset,
 )
 import pandas as pd
 import numpy as np
@@ -289,3 +293,12 @@ def test_cast_and_clean_df():
     pd.testing.assert_series_equal(df_clean['intcol'], intcol_clean, check_names=False)
     pd.testing.assert_series_equal(df_clean['intcol2'], intcol2_clean, check_names=False)
 
+
+def test__table_exists():
+    db = sql_dataset('./tests/database.yml')
+    db.send_cmd("IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;")
+    db.send_cmd("CREATE TABLE test_table ([uid] nvarchar(100) NULL);")
+    assert db._table_exists(db.config['conn'], 'test_table')
+
+    db.send_cmd("DROP TABLE test_table")
+    assert (not db._table_exists(db.config['conn'], 'test_table'))
