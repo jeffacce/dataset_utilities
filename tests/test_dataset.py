@@ -100,11 +100,24 @@ def test_get_type_str():
     assert has_null == False
     assert comment == ''
 
+    dtype, params, has_null, comment = get_type(pd.Series(['a' * 1000]))
+    assert dtype == 'nvarchar'
+    assert params == [2000]
+    assert has_null == False
+    assert comment == ''
+
     dtype, params, has_null, comment = get_type(pd.Series(['a' * 2001]))
     assert dtype == 'nvarchar'
     assert params == [4000]
     assert has_null == False
     assert comment == ''
+
+    with pytest.warns(None):
+        dtype, params, has_null, comment = get_type(pd.Series(['a' * 4001]))
+    assert dtype == 'nvarchar'
+    assert params == ['max']
+    assert has_null == False
+    assert comment == 'Maximum string length is 4001. Using nvarchar(max).'
 
     dtype, params, has_null, comment = get_type(pd.Series(['a', 'b', 'c', 'def', np.nan]))
     assert dtype == 'nvarchar'
@@ -134,6 +147,20 @@ def test_get_type_bool():
 
 
 def test_get_type_int():
+    # if the entire column is 0, default to int
+    dtype, params, has_null, comment = get_type(pd.Series([0, 0, 0]))
+    assert dtype == 'int'
+    assert params == []
+    assert has_null == False
+    assert comment == 'column contains only zeros; defaulting to int'
+
+    # if the entire column is 0 and null, default to int
+    dtype, params, has_null, comment = get_type(pd.Series([0, 0, 0, np.nan]))
+    assert dtype == 'int'
+    assert params == []
+    assert has_null == True
+    assert comment == 'column contains only zeros; defaulting to int'
+
     dtype, params, has_null, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
     assert dtype == 'bit'
     assert params == []
