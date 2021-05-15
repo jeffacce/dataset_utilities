@@ -293,6 +293,7 @@ def test_cast_and_clean_df():
     pd.testing.assert_series_equal(df_clean['intcol'], intcol_clean, check_names=False)
     pd.testing.assert_series_equal(df_clean['intcol2'], intcol2_clean, check_names=False)
 
+    # TODO: truncate=True, truncate=False tests
 
 def test__table_exists():
     db = sql_dataset('./tests/database.yml')
@@ -302,3 +303,5 @@ def test__table_exists():
 
     db.send_cmd("DROP TABLE test_table")
     assert (not db._table_exists(db.config['conn'], 'test_table'))
+
+# TODO: test__get_table_schema

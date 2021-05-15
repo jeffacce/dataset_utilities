@@ -7,6 +7,8 @@ from ..dataset import sql_dataset
 from .gen_rand_data import rand_df
 
 
+# TODO: truncate=True, truncate=False; create a table artificially too small to hold the data columns
+
 @pytest.fixture(scope='session')
 def gen_test_csv(request):
     df = rand_df(100000)
