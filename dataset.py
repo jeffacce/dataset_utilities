@@ -52,9 +52,10 @@ def get_type(x, force_allow_null=False):
         comment = 'empty column, defaulting to nvarchar(255)'
     else:
         if pd.api.types.is_object_dtype(x):
-            if type(x.iloc[0]) is datetime.date:
+            unique_types = x.apply(type).unique()
+            if (len(unique_types) == 1) and (unique_types[0] is datetime.date):
                 dtype = 'date'
-            elif type(x.iloc[0]) is datetime.datetime or type(x.iloc[0]) is pd.Timestamp:
+            elif (len(unique_types) == 1) and ((unique_types[0] is datetime.datetime) or (unique_types[0] is pd.Timestamp)):
                 dtype = 'datetime'
             elif set(x) == set([False, True]):
                 # NAs are dropped at the start of this function.
