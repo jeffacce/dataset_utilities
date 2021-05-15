@@ -10,6 +10,7 @@ from ..dataset import (
 )
 import pandas as pd
 import numpy as np
+import datetime
 
 
 # dataset.magnitude_and_scale
@@ -197,7 +198,39 @@ def test_get_type_int():
 
 
 def test_get_type_mixed():
+    # test different orders of the same mixed values; these should all return nvarchar.
+    # this is to guard against naively detecting types by the first non-empty value in object dtype columns
     dtype, params, has_null, comment = get_type(pd.Series([1, 2.0, 3.1, 'abc', pd.Timestamp('2020-01-01 00:00:00'), np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [38]
+    assert has_null == True
+    assert comment == ''
+
+    dtype, params, has_null, comment = get_type(pd.Series([pd.Timestamp('2020-01-01 00:00:00'), 1, 2.0, 3.1, 'abc', np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [38]
+    assert has_null == True
+    assert comment == ''
+
+    dtype, params, has_null, comment = get_type(pd.Series([datetime.date(2020, 1, 1), 1, 2.0, 3.1, 'abc', np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [20]
+    assert has_null == True
+    assert comment == ''
+
+    dtype, params, has_null, comment = get_type(pd.Series([datetime.datetime(2020, 1, 1, 0, 0, 0), 1, 2.0, 3.1, 'abc', np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [38]
+    assert has_null == True
+    assert comment == ''
+
+    dtype, params, has_null, comment = get_type(pd.Series([1, 2.0, 3.1, pd.Timestamp('2020-01-01 00:00:00'), 'abc', np.nan]))
+    assert dtype == 'nvarchar'
+    assert params == [38]
+    assert has_null == True
+    assert comment == ''
+
+    dtype, params, has_null, comment = get_type(pd.Series([2.0, 1, 3.1, pd.Timestamp('2020-01-01 00:00:00'), 'abc', np.nan]))
     assert dtype == 'nvarchar'
     assert params == [38]
     assert has_null == True
