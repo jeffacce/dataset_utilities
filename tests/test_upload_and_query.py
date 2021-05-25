@@ -20,6 +20,8 @@ def test_read_upload_query_bcp(gen_test_csv, verbose=True):
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
+    sd.send_cmd("IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;")
+
     sd.upload(mode='overwrite_table', bcp=True, verbose=verbose)
     df_queried = sd.query().data
     pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
@@ -32,6 +34,8 @@ def test_read_upload_query_pyodbc(gen_test_csv, verbose=True):
     sd = sql_dataset('./tests/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
+
+    sd.send_cmd("IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;")
 
     sd.upload(mode='overwrite_table', bcp=False, verbose=verbose)
     df_queried = sd.query().data

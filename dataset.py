@@ -165,6 +165,9 @@ def cast_and_clean_df(
             # this fixes int types having decimal points when uploaded into nvarchar columns
             result[colname] = result[colname].astype('Int64')
         elif dtype in ['varchar', 'nvarchar']:
+            # force str type for nvarchar; some drivers can only upload str to nvarchar
+            has_val_rows = ~result[colname].isna()
+            result.loc[has_val_rows, colname] = result.loc[has_val_rows, colname].astype(str)
             if not result[colname].isna().all():
                 size = result[colname].dropna().astype(str).str.len().max()
                 if size > params[0]:
