@@ -191,7 +191,10 @@ def cast_and_clean_df(
             # Int64 dtype (pandas>=0.24) to deal with NaN casting int to float
             # this fixes int types having decimal points when uploaded into nvarchar columns
             result[colname] = result[colname].astype('Int64')
-        elif (dtype in ['varchar', 'nvarchar']) and (params[0] != 'max'):
+        elif dtype in ['varchar', 'nvarchar'] and (params[0] != 'max'):
+            # force str type for nvarchar; some drivers can only upload str to nvarchar
+            has_val_rows = ~result[colname].isna()
+            result.loc[has_val_rows, colname] = result.loc[has_val_rows, colname].astype(str)
             if not result[colname].isna().all():
                 size = result[colname].dropna().astype(str).str.len().max()
                 size_desired = params[0]
