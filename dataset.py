@@ -143,6 +143,7 @@ def cast_and_clean_df(
     sample=None,
     verbose=False,
 ):
+    # TODO: [optim] redundant calls to get_type; could refactor to sql_dataset.upload to save calls
     result = df.copy()
 
     if df_types is None:
@@ -151,9 +152,35 @@ def cast_and_clean_df(
 
     for col in df_types:
         colname, dtype, params, has_null, comment = col
-        if dtype == 'decimal':
-            magnitude, scale = params
-            result[colname] = result[colname].round(scale)
+        if dtype in ['decimal', 'numeric']:
+            mag, scale = magnitude_and_scale(result[colname])
+            precision_desired, scale_desired = params
+            mag_desired = precision_desired - scale_desired
+            if mag > mag_desired:
+                msg = 'Column [{colname}] max magnitude ({mag}) exceeds {dtype}({precision_desired}, {scale_desired}) (magnitude={mag_desired}).'.format(
+                    colname=colname,
+                    mag=mag,
+                    dtype=dtype,
+                    precision_desired=precision_desired,
+                    scale_desired=scale_desired,
+                    mag_desired=mag_desired,
+                )
+                raise ValueError(msg)  # fatal; cannot resize magnitude without corrupting data.
+            if scale > scale_desired and not truncate:
+                msg = 'Column [{colname}] max scale ({scale}) exceeds {dtype}({precision_desired}, {scale_desired}).'.format(
+                    colname=colname,
+                    scale=scale,
+                    dtype=dtype,
+                    precision_desired=precision_desired,
+                    scale_desired=scale_desired,
+                )
+                raise ValueError(msg + ' Specify `truncate=True` to allow rounding.')
+            if verbose:
+                print('Rounding [{colname}] to {scale_desired} digits.'.format(
+                    colname=colname,
+                    scale_desired=scale_desired,
+                ))
+            result[colname] = result[colname].round(scale_desired)
             if result[colname].isin([np.inf, -np.inf]).any():
                 warnings.warn('MS SQL Server does not support infinity. Replacing with NaN.')
                 result[colname].replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -164,24 +191,23 @@ def cast_and_clean_df(
             # Int64 dtype (pandas>=0.24) to deal with NaN casting int to float
             # this fixes int types having decimal points when uploaded into nvarchar columns
             result[colname] = result[colname].astype('Int64')
-        elif dtype in ['varchar', 'nvarchar']:
+        elif (dtype in ['varchar', 'nvarchar']) and (params[0] != 'max'):
             if not result[colname].isna().all():
                 size = result[colname].dropna().astype(str).str.len().max()
-                if size > params[0]:
-                    msg = '[{colname}] max length ({size}) exceeds {dtype}({params[0]}).'.format(
+                size_desired = params[0]
+                if size > size_desired:
+                    msg = 'Column [{colname}] max length ({size}) exceeds {dtype}({size_desired}).'.format(
                         colname=colname,
                         size=size,
                         dtype=dtype,
-                        params=params,
+                        size_desired=size_desired,
                     )
                     if truncate:
                         if verbose:
                             print(msg)
-                        result[colname] = result[colname].str[:size]
+                        result[colname] = result[colname].str[:size_desired]
                     else:
-                        warnings.warn(msg + ' Specify `truncate=True` to force truncation.')
-    
-
+                        raise ValueError(msg + ' Specify `truncate=True` to force truncation.')
     return result
 
 
@@ -372,6 +398,8 @@ class sql_dataset(dataset):
                     params = [int(row['NUMERIC_PRECISION']), int(row['NUMERIC_SCALE'])]
                 elif dtype.lower() in ['nvarchar', 'varchar']:
                     params = [int(row['CHARACTER_MAXIMUM_LENGTH'])]
+                    if params[0] == -1:
+                        params[0] = 'max'
                 else:
                     params = []
                 result.append([col, dtype, params, has_null, comment])
@@ -494,6 +522,7 @@ class sql_dataset(dataset):
             self.send_cmd('TRUNCATE TABLE %s;' % self.config['table'])
         elif mode == 'overwrite_table':
             df_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
+            truncate = True
             
             # drop old table
             if verbose:
@@ -512,7 +541,7 @@ class sql_dataset(dataset):
         
         if verbose:
             print('Preprocessing data.')
-        self.data = cast_and_clean_df(self.data, df_types)
+        self.data = cast_and_clean_df(self.data, df_types, truncate=truncate, verbose=verbose)
 
         # try to connect even if we're using BCP,
         # since BCP doesn't catch connection errors
