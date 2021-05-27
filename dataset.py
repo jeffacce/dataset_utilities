@@ -12,6 +12,7 @@ import subprocess
 import requests
 import sys
 import time
+from collections import OrderedDict
 
 
 # vectorized and adapted from:
@@ -269,61 +270,87 @@ class dataset:
         else:
             with open(config_path, 'r', encoding='utf-8-sig') as f:
                 self.config = yaml.safe_load(f)
-        
-        if 'transform' in self.config:
-            self.transform_function = _try_import(self.config['transform'])
-        else:
-            self.transform_function = None
     
-    def read(self, filepath=None):
-        if filepath is None:
+    def _get_config(self, fname, **params):
+        if fname in ['read', 'write']:
+            filepath = None
+            # global filepath config < read/write specific filepath config < argument filepath
             if 'filepath' in self.config:
                 filepath = self.config['filepath']
-            else:
-                raise ValueError('filepath must be specified here or in the config file.')
+            if fname in self.config:
+                if 'filepath' in self.config[fname]:
+                    filepath = self.config[fname]['filepath']
+            if params['filepath'] is not None:
+                filepath = params['filepath']
+            # if filepath is specified nowhere, error
+            if filepath is None:
+                raise ValueError('`filepath` must be specified as an argument or in the config file.')
+            
+            # backwards compatibility for kwargs scattered around global scope
+            for key in ['header', 'sheet_name', 'encoding']:
+                if key not in params['kwargs']:
+                    if key in self.config:
+                        params['kwargs'][key] = self.config[key]
+                    if fname in self.config:
+                        if key in self.config[fname]:
+                            params['kwargs'][key] = self.config[fname][key]
+            
+            if fname == 'write':
+                # set default output options for dataset.write
+                if 'index' not in params['kwargs']:
+                    params['kwargs']['index'] = False
+                if 'encoding' not in params['kwargs']:
+                    params['kwargs']['encoding'] = 'utf-8-sig'
+
+            return filepath, params['kwargs']  # TODO: test header, sheet_name, encoding
+        elif fname == 'transform':
+            transform_function = None
+            if 'transform' in self.config:
+                transform_function = _try_import(self.config['transform'])
+            if params['transform_function'] is not None:
+                transform_function = params['transform_function']
+            return transform_function
+    
+    def read(self, filepath=None, **kwargs):
+        filepath, kwargs = self._get_config('read', filepath=filepath, kwargs=kwargs)
         
         ext = os.path.splitext(filepath)[1]
         if ext == '.csv':
             self.data = pd.read_csv(
                 self.config['filepath'],
-                encoding=self.config.get('encoding'),
-                float_precision='round_trip',
+                float_precision='round_trip',  # ? potential conflict with kwargs?
+                **kwargs,
             )
         elif ext in ['.h5', '.hdf5', '.hdf']:
-            self.data = pd.read_hdf(self.config['filepath'])
+            self.data = pd.read_hdf(self.config['filepath'], **kwargs)
         elif ext in ['.xls', '.xlsx']:
             self.data = pd.read_excel(
                 self.config['filepath'],
-                header=self.config.get('header', 0),
-                sheet_name=self.config.get('sheet_name', 0),
+                **kwargs,
             )
         else:
             raise ValueError('Only .h5/hdf/hdf5/csv/xls/xlsx supported.')
         return self
     
-    def write(self, filepath=None):
-        if filepath is None:
-            if 'filepath' in self.config:
-                filepath = self.config['filepath']
-            else:
-                raise ValueError('filepath must be specified here or in the config file.')
+    def write(self, filepath=None, **kwargs):
+        filepath, kwargs = self._get_config('write', filepath=filepath, kwargs=kwargs)
+
         ext = os.path.splitext(filepath)[1]
         if ext == '.csv':
-            self.data.to_csv(filepath, index=False, encoding='utf-8-sig')
+            self.data.to_csv(filepath, **kwargs)
         elif ext in ['.h5', '.hdf5', '.hdf']:
-            self.data.to_hdf(filepath, index=False, encoding='utf-8-sig')
+            self.data.to_hdf(filepath, **kwargs)
         elif ext in ['.xls', 'xlsx']:
-            self.data.to_excel(filepath, index=False, encoding='utf-8-sig')
+            self.data.to_excel(filepath, **kwargs)
         else:
             raise ValueError('Only .h5/hdf/hdf5/csv/xls/xlsx supported.')
         return self
     
     def transform(self, transform_function=None):
-        if not transform_function is None:
+        transform_function = self._get_config(transform_function=transform_function)
+        # TODO: test this
+        if transform_function is not None:
             self.data = transform_function(self.data)
-        else:
-            if not self.transform_function is None:
-                self.data = self.transform_function(self.data)
         return self
 
 
@@ -344,11 +371,54 @@ class sql_dataset(dataset):
             result += ['-T']
         return result
     
+    def _get_config(self, fname, **params):
+        # global config < function specific config < function argument config
+        if fname in ['read', 'write', 'transform']:
+            return super()._get_config(fname, **params)
+        elif fname in ['query', 'send_cmd', 'upload']:
+            if fname == 'query':
+                result = OrderedDict([
+                    ('conn', self.config.get('conn', None)),
+                    ('get_data', None),
+                    ('get_row_count', None),
+                    ('chunksize', 1000),
+                    ('template_vars', params['template_vars']),
+                ])
+            elif fname == 'send_cmd':
+                result = OrderedDict([
+                    ('cmd', None),
+                    ('conn', self.config.get('conn', None)),
+                    ('verbose', False),
+                ])
+            elif fname == 'upload':
+                result = OrderedDict([ 
+                    ('conn', self.config.get('conn', None)),
+                    ('table', self.config.get('table', None)),
+                    ('mode', 'append'),
+                    ('bcp', True),
+                    ('truncate', False),
+                    ('schema_sample', None),
+                    ('chunksize', 1000),
+                    ('verbose', False),
+                ])
+            for key in result.keys():
+                if fname in self.config:
+                    if key in self.config[fname]:
+                        result[key] = self.config[fname][key]
+                if params[key] is not None:
+                    result[key] = params[key]
+            return result.values()  # ordered dict
+    
     def _connect(self, conn, max_retries=3, delay=5, verbose=False, **kwargs):
         '''
         Connect to a database with retries.
         Returns a pyodbc connection (success), or raises `ConnectionError` (failure).
         `conn`: connection config dictionary for `pyodbc`.
+            - `server`: server address.
+            - `user`(`uid`): username.
+            - `password`(`pwd`): password.
+            - `database`: database name.
+            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `max_retries`: maximum number of tries to ping the database.
         `delay`: initial delay after failure (seconds). Each successive delay will be doubled in time.
         `verbose`: verbose output. Default False.
@@ -360,7 +430,7 @@ class sql_dataset(dataset):
             try:
                 if verbose:
                     print('Connecting to database... Try %s/%s' % (retries + 1, max_retries))
-                conn = pyodbc.connect(**self.config['conn'], **kwargs)
+                conn = pyodbc.connect(**conn, **kwargs)
                 result = pd.read_sql('SELECT 1;', conn).values.item()
                 success = (result == 1)
             except:
@@ -380,7 +450,6 @@ class sql_dataset(dataset):
         return conn
     
     def _get_table_schema(self, conn, table):
-        # TODO: conn is a dict. Check if this is desired.
         template = '''
             SELECT
                 COLUMN_NAME, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
@@ -389,7 +458,6 @@ class sql_dataset(dataset):
         '''
         query = template % table
         if self._table_exists(conn, table):
-            conn = self._connect(conn)
             df = pd.read_sql(query, conn)
             result = []
             for i in range(len(df)):
@@ -413,15 +481,19 @@ class sql_dataset(dataset):
         return result
 
     def _table_exists(self, conn, table):
-        # TODO: conn is a dict. Check if this is desired.
         query = "IF OBJECT_ID('%s', 'U') IS NULL SELECT 0 ELSE SELECT 1" % table
-        conn = self._connect(conn)
         result = pd.read_sql(query, conn).values.item() == 1
         return result
 
-    def query(self, get_data=None, get_row_count=None, chunksize=1000, **template_vars):
+    def query(self, conn=None, get_data=None, get_row_count=None, chunksize=None, **template_vars):
         '''
         Query a database.
+        `conn`: connection config dictionary for `pyodbc`.
+            - `server`: server address.
+            - `user`(`uid`): username.
+            - `password`(`pwd`): password.
+            - `database`: database name.
+            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `get_data`:
             SQL query for the actual data.
             Must be supplied either in config or as an argument here.
@@ -435,28 +507,35 @@ class sql_dataset(dataset):
             Any additional keyword arguments are interpreted as template variables
             and used to replace variable appearances like `{xyz}` in the query string.
         '''
-        if get_data is None:
-            # left part is evaluated before the right part
-            if ('query' in self.config) and ('get_data' in self.config['query']):
-                get_data = self.config['query']['get_data']
-            else:
-                raise ValueError('`get_data` SQL query must be specified as an argument or in the config file.')
 
-            if get_row_count is None:
-                # left part is evaluated before the right part
-                if ('query' in self.config) and ('get_row_count' in self.config['query']):
-                    get_row_count = self.config['query']['get_row_count']
+        (
+            conn,
+            get_data,
+            get_row_count,
+            chunksize,
+            template_vars,
+        ) = self._get_config(
+            'query',
+            conn=conn,
+            get_data=get_data,
+            get_row_count=get_row_count,
+            chunksize=chunksize,
+            template_vars=template_vars,
+        )
+
+        if get_data is None:
+            raise ValueError('`get_data` SQL query must be specified as an argument or in the config file.')
         
-        conn = self._connect(self.config['conn'])
+        conn = self._connect(conn)
         
-        if not (get_row_count is None):
+        if get_row_count is not None:
             get_row_count = get_row_count.format(**template_vars)
             row_count = pd.read_sql(get_row_count, conn).values.item()
             chunk_count = np.ceil(row_count / chunksize).astype(int)
 
         chunks = pd.read_sql(get_data.format(**template_vars), conn, chunksize=chunksize)
         
-        if not (get_row_count is None):
+        if get_row_count is not None:
             chunks = tqdm(chunks, total=chunk_count)
 
         data = []
@@ -476,13 +555,25 @@ class sql_dataset(dataset):
         
         return self
 
-    def send_cmd(self, cmd, verbose=False):
+    def send_cmd(
+        self,
+        cmd=None,
+        conn=None,
+        verbose=None,
+    ):
         '''
         Send a command to the database w/o returning results.
         `cmd`: SQL query to send.
+        `conn`: connection config dictionary for `pyodbc`.
+            - `server`: server address.
+            - `user`(`uid`): username.
+            - `password`(`pwd`): password.
+            - `database`: database name.
+            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `verbose`: verbose output. Default False.
         '''
-        conn = self._connect(self.config['conn'], autocommit=False)
+        (cmd, conn, verbose) = self._get_config('send_cmd', cmd=cmd, conn=conn, verbose=verbose)
+        conn = self._connect(conn, autocommit=False)
         crsr = conn.cursor()
         try:
             crsr.execute(cmd)
@@ -494,9 +585,26 @@ class sql_dataset(dataset):
             conn.commit()
         conn.close()
 
-    def upload(self, mode='append', bcp=True, truncate=False, schema_sample=None, chunksize=1000, verbose=False):
+    def upload(
+        self,
+        conn=None,
+        table=None,
+        mode=None,
+        bcp=None,
+        truncate=None,
+        schema_sample=None,
+        chunksize=None,
+        verbose=None,
+    ):
         '''
         Upload data to database.
+        `conn`: connection config dictionary for `pyodbc`.
+            - `server`: server address.
+            - `user`(`uid`): username.
+            - `password`(`pwd`): password.
+            - `database`: database name.
+            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
+        `table`: table name.
         `mode`:
             - `append`: append to an existing table. (Default)
             - `overwrite_data`: truncate the existing table and upload data.
@@ -507,24 +615,43 @@ class sql_dataset(dataset):
         `chunksize`: chunk size. Default 1000.
         `verbose`: verbose output. Default False.
         '''
-        # TODO: self.config['conn'], self.config['table'] needs to refactored during API change.
 
-        # TODO: detect df_types from df; compare to df_types from table. If df cannot fit in table: if truncate, truncate silently; else, raise errors.
-        # this is to enable auto-truncate for already created tables.
-        # for mode=append, overwrite_data: cast and clean df, truncate with warning unless silent truncation
-        # for mode=overwrite_table: cast and clean df, truncate without warning...? or still with warning? (can we assume that df_types can always hold the df, if generated?)
-
-        # get column type definitions and cast data (deals with float errors)
         if verbose:
             print('Determining data types.')
         
+        (
+            conn_dict,
+            table,
+            mode,
+            bcp,
+            truncate,
+            schema_sample,
+            chunksize,
+            verbose,
+        ) = self._get_config(
+            'upload',
+            conn=conn,
+            table=table,
+            mode=mode,
+            bcp=bcp,
+            truncate=truncate,
+            schema_sample=schema_sample,
+            chunksize=chunksize,
+            verbose=verbose,
+        )
+
+        conn = self._connect(conn_dict)
+        
         if mode == 'append':
-            df_types = self._get_table_schema(self.config['conn'], self.config['table'])
+            df_types = self._get_table_schema(conn, table)
         elif mode == 'overwrite_data':
-            df_types = self._get_table_schema(self.config['conn'], self.config['table'])
+            df_types = self._get_table_schema(conn, table)
             if verbose:
                 print('Deleting data from database.')
-            self.send_cmd('TRUNCATE TABLE %s;' % self.config['table'])
+            self.send_cmd(
+                cmd='TRUNCATE TABLE %s;' % table,
+                conn=conn_dict,
+            )
         elif mode == 'overwrite_table':
             df_types = get_df_type(self.data, force_allow_null=True, sample=schema_sample, verbose=verbose)
             truncate = True
@@ -533,24 +660,27 @@ class sql_dataset(dataset):
             if verbose:
                 print('Dropping old table.')
 
-            self.send_cmd("IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s;" % (self.config['table'], self.config['table']))
+            self.send_cmd(
+                cmd="IF OBJECT_ID('{table}', 'U') IS NOT NULL DROP TABLE {table};".format(table=table),
+                conn=conn_dict,
+            )
 
             # create new table
-            schema_def_query = get_create_statement(df_types, self.config['table'])
+            cmd_create = get_create_statement(df_types, table)
             if verbose:
                 print('Creating new table.')
-                print(schema_def_query)
-            self.send_cmd(schema_def_query)
+                print(cmd_create)
+            self.send_cmd(
+                cmd=cmd_create,
+                conn=conn_dict,
+            )
         else:
             raise ValueError("mode must be one of ['append', 'overwrite_data', 'overwrite_table']")
         
         if verbose:
             print('Preprocessing data.')
         self.data = cast_and_clean_df(self.data, df_types, truncate=truncate, verbose=verbose)
-
-        # try to connect even if we're using BCP,
-        # since BCP doesn't catch connection errors
-        conn = self._connect(self.config['conn'], autocommit=False)
+        conn.close()
 
         if bcp:
             temp_filename = 'bcp_temp_%s' % uuid.uuid4()
@@ -572,7 +702,7 @@ class sql_dataset(dataset):
                 '-e', temp_filename + '.err',
                 '-F2',
                 '-b', str(int(chunksize)),
-                *self._format_host_config_args(self.config['conn']),
+                *self._format_host_config_args(conn_dict),
             ], stdout=stdout).wait()
 
             # clean up temp files
@@ -587,6 +717,7 @@ class sql_dataset(dataset):
                 if os.stat(err_path).st_size == 0:
                     os.remove(err_path)
         else:
+            conn = self._connect(conn_dict, autocommit=False)
             crsr = conn.cursor()
             crsr.fast_executemany = True
             
@@ -610,9 +741,8 @@ class sql_dataset(dataset):
                     raise err
                 else:
                     conn.commit()
+            conn.close()
         
-        conn.close()
-        
-    def upload_bcp(self, mode='append', verbose=False, schema_sample=None):
+    def upload_bcp(self, mode=None, verbose=None, schema_sample=None):
         warnings.warn("`sql_dataset.upload_bcp` is deprecated. Use `sql_dataset.upload(bcp=True)` instead.", DeprecationWarning)
         self.upload(mode=mode, bcp=True, verbose=verbose, schema_sample=schema_sample)
