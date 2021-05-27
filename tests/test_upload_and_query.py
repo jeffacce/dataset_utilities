@@ -1,10 +1,10 @@
 import pytest
 import pandas as pd
 import numpy as np
-import requests
 import os
 from ..dataset import sql_dataset
 from .gen_rand_data import rand_df
+
 
 CMD_DROP_TEST_TABLE_IF_EXISTS = "IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;"
 CMD_CREATE_TRUNCATED_TEST_TABLE = """
@@ -34,6 +34,7 @@ CMD_CREATE_TRUNCATED_TEST_TABLE = """
     );
 """
 
+
 @pytest.fixture(scope='session')
 def gen_test_csv(request):
     df = rand_df(100000)
@@ -42,8 +43,9 @@ def gen_test_csv(request):
         os.remove('./tests/test_data.csv')
     request.addfinalizer(finalize)
 
+
 def test_read_upload_query_bcp(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/database.yml').read()
+    sd = sql_dataset('./tests/config/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -59,8 +61,9 @@ def test_read_upload_query_bcp(gen_test_csv, verbose=True):
 
     sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
 
+
 def test_read_upload_query_bcp_truncate(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/database.yml').read()
+    sd = sql_dataset('./tests/config/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -86,7 +89,7 @@ def test_read_upload_query_bcp_truncate(gen_test_csv, verbose=True):
 
 
 def test_read_upload_query_pyodbc(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/database.yml').read()
+    sd = sql_dataset('./tests/config/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -104,7 +107,7 @@ def test_read_upload_query_pyodbc(gen_test_csv, verbose=True):
 
 
 def test_read_upload_query_pyodbc_truncate(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/database.yml').read()
+    sd = sql_dataset('./tests/config/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -128,9 +131,3 @@ def test_read_upload_query_pyodbc_truncate(gen_test_csv, verbose=True):
     pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
 
     sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
-
-
-def test_connect_fake_database_raises_connection_error(verbose=True):
-    sd = sql_dataset('./tests/fake_database.yml')
-    with pytest.raises(requests.ConnectionError):
-        sd._connect(sd.config['conn'], max_retries=1, delay=5, verbose=False)

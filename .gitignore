@@ -7,11 +7,10 @@ result.csv
 *.csv
 *.tmp
 *.err
-database.yml
 .coverage
 .vscode
 __pycache__
-!tests/database.yml
+!tests/config/*.yml
 *.swp
 coverage.xml
 .coverage*

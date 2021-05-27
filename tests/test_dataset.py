@@ -11,6 +11,9 @@ from ..dataset import (
 import pandas as pd
 import numpy as np
 import datetime
+import pyodbc
+import requests
+
 
 CMD_DROP_TEST_TABLE_IF_EXISTS = "IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;"
 CMD_CREATE_TEST_TABLE = """
@@ -141,6 +144,7 @@ def test_get_type_decimal():
     assert has_null == False
     assert comment == ''
 
+def test_get_type_decimal_na_inf():
     dtype, params, has_null, comment = get_type(pd.Series([1.1, 2.1, 3.0, np.nan]))
     assert dtype == 'decimal'
     assert params == [2, 1]
@@ -173,6 +177,7 @@ def test_get_type_str():
     assert has_null == False
     assert comment == ''
 
+def test_get_type_str_max():
     with pytest.warns(None):
         dtype, params, has_null, comment = get_type(pd.Series(['a' * 4001]))
     assert dtype == 'nvarchar'
@@ -180,18 +185,19 @@ def test_get_type_str():
     assert has_null == False
     assert comment == 'Maximum string length is 4001. Using nvarchar(max).'
 
+def test_get_type_str_na():
     dtype, params, has_null, comment = get_type(pd.Series(['a', 'b', 'c', 'def', np.nan]))
     assert dtype == 'nvarchar'
     assert params == [6]
     assert has_null == True
     assert comment == ''
 
+def test_get_type_str_empty():
     dtype, params, has_null, comment = get_type(pd.Series(['', '', '', '', '']))
     assert dtype == 'nvarchar'
     assert params == [255]
     assert has_null == False
     assert comment == 'zero-length string column, defaulting to nvarchar(255)'
-
 
 def test_get_type_bool():
     dtype, params, has_null, comment = get_type(pd.Series([True, False]))
@@ -200,14 +206,42 @@ def test_get_type_bool():
     assert has_null == False
     assert comment == ''
 
+def test_get_type_bool_na():
     dtype, params, has_null, comment = get_type(pd.Series([True, False, np.nan]))
     assert dtype == 'bit'
     assert params == []
     assert has_null == True
     assert comment == ''
 
+def test_get_type_bit():
+    dtype, params, has_null, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
+    assert dtype == 'bit'
+    assert params == []
+    assert has_null == False
+    assert comment == ''
+
+def test_get_type_tinyint():
+    dtype, params, has_null, comment = get_type(pd.Series([0, 1, 2, 3, 3.0, 4.0]))
+    assert dtype == 'tinyint'
+    assert params == []
+    assert has_null == False
+    assert comment == ''
+
+def test_get_type_smallint():
+    dtype, params, has_null, comment = get_type(pd.Series([-2.0, -1, 0.000, 1, 2.0]))
+    assert dtype == 'smallint'
+    assert params == []
+    assert has_null == False
+    assert comment == ''
 
 def test_get_type_int():
+    dtype, params, has_null, comment = get_type(pd.Series([-60000, 0.000, 60000]))
+    assert dtype == 'int'
+    assert params == []
+    assert has_null == False
+    assert comment == ''
+
+def test_get_type_int_zeros():
     # if the entire column is 0, default to int
     dtype, params, has_null, comment = get_type(pd.Series([0, 0, 0]))
     assert dtype == 'int'
@@ -215,6 +249,7 @@ def test_get_type_int():
     assert has_null == False
     assert comment == 'column contains only zeros; defaulting to int'
 
+def test_get_type_int_zeros_na():
     # if the entire column is 0 and null, default to int
     dtype, params, has_null, comment = get_type(pd.Series([0, 0, 0, np.nan]))
     assert dtype == 'int'
@@ -222,36 +257,12 @@ def test_get_type_int():
     assert has_null == True
     assert comment == 'column contains only zeros; defaulting to int'
 
-    dtype, params, has_null, comment = get_type(pd.Series([0, 1, 0.0, 1.00]))
-    assert dtype == 'bit'
-    assert params == []
-    assert has_null == False
-    assert comment == ''
-
-    dtype, params, has_null, comment = get_type(pd.Series([0, 1, 2, 3, 3.0, 4.0]))
-    assert dtype == 'tinyint'
-    assert params == []
-    assert has_null == False
-    assert comment == ''
-
-    dtype, params, has_null, comment = get_type(pd.Series([-2.0, -1, 0.000, 1, 2.0]))
-    assert dtype == 'smallint'
-    assert params == []
-    assert has_null == False
-    assert comment == ''
-
-    dtype, params, has_null, comment = get_type(pd.Series([-60000, 0.000, 60000]))
-    assert dtype == 'int'
-    assert params == []
-    assert has_null == False
-    assert comment == ''
-
+def test_get_type_bigint():
     dtype, params, has_null, comment = get_type(pd.Series([-2147490000, 0.000, 2147490000]))
     assert dtype == 'bigint'
     assert params == []
     assert has_null == False
     assert comment == ''
-
 
 def test_get_type_mixed():
     # test different orders of the same mixed values; these should all return nvarchar.
@@ -316,6 +327,7 @@ def test_get_type_empty():
     assert has_null == True
     assert comment == 'empty column, defaulting to nvarchar(255)'
 
+def test_get_type_empty_only_na():
     dtype, params, has_null, comment = get_type(pd.Series([np.nan]))
     assert dtype == 'nvarchar'
     assert params == [255]
@@ -429,23 +441,36 @@ def test_cast_and_clean_df_truncate():
     
 
 def test__table_exists():
-    db = sql_dataset('./tests/database.yml')
+    db = sql_dataset('./tests/config/database.yml')
     db.send_cmd("IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;")
     db.send_cmd("CREATE TABLE test_table ([uid] nvarchar(100) NULL);")
-    assert db._table_exists(db.config['conn'], 'test_table')
+    conn = pyodbc.connect(**db.config['conn'])
+    assert db._table_exists(conn, 'test_table')
 
     db.send_cmd("DROP TABLE test_table")
-    assert (not db._table_exists(db.config['conn'], 'test_table'))
+    assert (not db._table_exists(conn, 'test_table'))
 
 
 def test__get_table_schema():
-    db = sql_dataset('./tests/database.yml')
+    db = sql_dataset('./tests/config/database.yml')
     db.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
     db.send_cmd(CMD_CREATE_TEST_TABLE)
 
-    result = db._get_table_schema(db.config['conn'], 'test_table')
+    conn = pyodbc.connect(**db.config['conn'])
+    result = db._get_table_schema(conn, 'test_table')
     for i in range(len(result)):
         for j in range(len(result[i])):
             assert result[i][j] == expected_schema[i][j]
     
     db.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+
+
+def test__connect():
+    db = sql_dataset('./tests/config/database.yml')
+    conn = db._connect(db.config['conn'])
+
+
+def test__connect_fake_database_raises_connection_error(verbose=True):
+    sd = sql_dataset('./tests/config/fake_database.yml')
+    with pytest.raises(requests.ConnectionError):
+        sd._connect(sd.config['conn'], max_retries=1, delay=5, verbose=False)
