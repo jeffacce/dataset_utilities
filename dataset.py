@@ -228,6 +228,8 @@ def get_create_statement(df_types, table_name):
             col_def += '(%s)' % params
         if has_null:
             col_def += ' NULL'
+        else:
+            col_def += ' NOT NULL'
         col_defs.append(col_def)
     col_defs = ',\n'.join(indent(col_defs))
     
@@ -395,7 +397,7 @@ class sql_dataset(dataset):
                 # convert row to [col, dtype, params, has_null, comment]
                 col = row['COLUMN_NAME']
                 dtype = row['DATA_TYPE']
-                has_null = row['IS_NULLABLE']
+                has_null = (row['IS_NULLABLE'] == 'YES')
                 comment = ''
                 if dtype.lower() in ['numeric', 'decimal']:
                     params = [int(row['NUMERIC_PRECISION']), int(row['NUMERIC_SCALE'])]

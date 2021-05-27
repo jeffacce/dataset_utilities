@@ -12,6 +12,62 @@ import pandas as pd
 import numpy as np
 import datetime
 
+CMD_DROP_TEST_TABLE_IF_EXISTS = "IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;"
+CMD_CREATE_TEST_TABLE = """
+    CREATE TABLE test_table (
+        [dt] datetime NULL,
+        [dt2] date NOT NULL,
+        [uid] nvarchar(10) NOT NULL,
+        [strcol] nvarchar(max) NOT NULL,
+        [name] nvarchar(10) NULL,
+        [empty_col] nvarchar(100) NULL,
+        [float] decimal(22,3) NULL,
+        [float_k] decimal(22,3) NULL,
+        [float_m] decimal(22,13) NULL,
+        [float_b] decimal(22,9) NULL,
+        [float_na] decimal(22,3) NULL,
+        [bit] bit NULL,
+        [bit_na] bit NULL,
+        [tinyint] tinyint NULL,
+        [tinyint_na] tinyint NULL,
+        [smallint] smallint NOT NULL,
+        [smallint_na] smallint NULL,
+        [int] int NOT NULL,
+        [int_na] int NULL,
+        [bigint] bigint NULL,
+        [bigint_na] bigint NULL,
+        [bool] bit NULL,
+        [bool_na] bit NULL,
+        [empty_str_col] nvarchar(100) NULL
+    );
+"""
+expected_schema = [
+    ['dt', 'datetime', [], True, ''],
+    ['dt2', 'date', [], False, ''],
+    ['uid', 'nvarchar', [10], False, ''],
+    ['strcol', 'nvarchar', ['max'], False, ''],
+    ['name', 'nvarchar', [10], True, ''],
+    ['empty_col', 'nvarchar', [100], True, ''],
+    ['float', 'decimal', [22,3], True, ''],
+    ['float_k', 'decimal', [22,3], True, ''],
+    ['float_m', 'decimal', [22,13], True, ''],
+    ['float_b', 'decimal', [22,9], True, ''],
+    ['float_na', 'decimal', [22,3], True, ''],
+    ['bit', 'bit', [], True, ''],
+    ['bit_na', 'bit', [], True, ''],
+    ['tinyint', 'tinyint', [], True, ''],
+    ['tinyint_na', 'tinyint', [], True, ''],
+    ['smallint', 'smallint', [], False, ''],
+    ['smallint_na', 'smallint', [], True, ''],
+    ['int', 'int', [], False, ''],
+    ['int_na', 'int', [], True, ''],
+    ['bigint', 'bigint', [], True, ''],
+    ['bigint_na', 'bigint', [], True, ''],
+    ['bool', 'bit', [], True, ''],
+    ['bool_na', 'bit', [], True, ''],
+    ['empty_str_col', 'nvarchar', [100], True, ''],
+]
+
 
 # dataset.magnitude_and_scale
 def test_magnitude_and_scale_int():
@@ -291,7 +347,10 @@ df = pd.DataFrame({
     'intcol': pd.Series([1,2,3]),
     'intcol2': pd.Series([1,2,np.nan]),
     'strcol': pd.Series(['a', 'b', 'c']),
+    'strcol2': pd.Series(['a'*10, 'b'*10, 'c'*10]),
+    'strcol3': pd.Series(['a'*4001, 'b'*4001, 'c'*4001]),
     'floatcol': pd.Series([np.inf, 1.100, 2.100]),
+    'floatcol2': pd.Series([1.12345, 2.12345, 3.12345]),
     'boolcol': pd.Series([np.nan, False, True]),
     'boolcol2': pd.Series([False, True, True]),
 })
@@ -300,33 +359,74 @@ df_type = [
     ['intcol', 'tinyint', [], False, ''],
     ['intcol2', 'tinyint', [], True, ''],
     ['strcol', 'nvarchar', [2], False, ''],
+    ['strcol2', 'nvarchar', [20], False, ''],
+    ['strcol3', 'nvarchar', ['max'], False, 'Maximum string length is 4001. Using nvarchar(max).'],
     ['floatcol', 'decimal', [2, 1], True, ''],
+    ['floatcol2', 'decimal', [8, 7], False, ''],
     ['boolcol', 'bit', [], True, ''],
     ['boolcol2', 'bit', [], False, ''],
 ]
 
-def test_get_df_type():
-    assert get_df_type(df) == df_type
+df_type_truncate = [
+    ['intcol', 'tinyint', [], False, ''],
+    ['intcol2', 'tinyint', [], True, ''],
+    ['strcol', 'nvarchar', [2], False, ''],
+    ['strcol2', 'nvarchar', [5], False, ''],
+    ['strcol3', 'nvarchar', [5], False, ''],
+    ['floatcol', 'decimal', [2, 0], True, ''],
+    ['floatcol2', 'decimal', [8, 3], False, ''],
+    ['boolcol', 'bit', [], True, ''],
+    ['boolcol2', 'bit', [], False, ''],
+]
 
+boolcol_clean = pd.Series([pd.NA, 0, 1]).astype('Int64')
+boolcol2_clean = pd.Series([0, 1, 1]).astype('Int64')
+intcol_clean = pd.Series([1, 2, 3]).astype('Int64')
+intcol2_clean = pd.Series([1, 2, pd.NA]).astype('Int64')
+
+strcol2_trunc = pd.Series(['a'*5, 'b'*5, 'c'*5])
+strcol3_trunc = pd.Series(['a'*5, 'b'*5, 'c'*5])
+floatcol_trunc = pd.Series([np.nan, 1.0, 2.0])
+floatcol2_trunc = pd.Series([1.123, 2.123, 3.123])
+
+def test_get_df_type():
+    with pytest.warns(UserWarning, match=r'nvarchar\(max\)'):
+        assert get_df_type(df) == df_type
 
 def test_cast_and_clean_df():
     with pytest.warns(UserWarning, match='infinity'):
-        df_clean = cast_and_clean_df(df, df_type)
+        df_clean = cast_and_clean_df(df, df_type, truncate=False, verbose=True)
     assert np.inf not in df_clean
     assert -np.inf not in df_clean
     assert False not in df_clean
     assert True not in df_clean
 
-    boolcol_clean = pd.Series([pd.NA, 0, 1]).astype('Int64')
-    boolcol2_clean = pd.Series([0, 1, 1]).astype('Int64')
-    intcol_clean = pd.Series([1, 2, 3]).astype('Int64')
-    intcol2_clean = pd.Series([1, 2, pd.NA]).astype('Int64')
     pd.testing.assert_series_equal(df_clean['boolcol'], boolcol_clean, check_names=False)
     pd.testing.assert_series_equal(df_clean['boolcol2'], boolcol2_clean, check_names=False)
     pd.testing.assert_series_equal(df_clean['intcol'], intcol_clean, check_names=False)
     pd.testing.assert_series_equal(df_clean['intcol2'], intcol2_clean, check_names=False)
 
-    # TODO: truncate=True, truncate=False tests
+
+def test_cast_and_clean_df_truncate():
+    with pytest.raises(ValueError, match='truncation'):
+        df_clean = cast_and_clean_df(df, df_type_truncate, truncate=False, verbose=True)
+    with pytest.warns(UserWarning, match='infinity'):
+        df_clean = cast_and_clean_df(df, df_type_truncate, truncate=True, verbose=False)
+
+    assert np.inf not in df_clean
+    assert -np.inf not in df_clean
+    assert False not in df_clean
+    assert True not in df_clean
+
+    pd.testing.assert_series_equal(df_clean['boolcol'], boolcol_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['boolcol2'], boolcol2_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['intcol'], intcol_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['intcol2'], intcol2_clean, check_names=False)
+    pd.testing.assert_series_equal(df_clean['strcol2'], strcol2_trunc, check_names=False)
+    pd.testing.assert_series_equal(df_clean['strcol3'], strcol3_trunc, check_names=False)
+    pd.testing.assert_series_equal(df_clean['floatcol'], floatcol_trunc, check_names=False)
+    pd.testing.assert_series_equal(df_clean['floatcol2'], floatcol2_trunc, check_names=False)
+    
 
 def test__table_exists():
     db = sql_dataset('./tests/database.yml')
@@ -337,4 +437,15 @@ def test__table_exists():
     db.send_cmd("DROP TABLE test_table")
     assert (not db._table_exists(db.config['conn'], 'test_table'))
 
-# TODO: test__get_table_schema
+
+def test__get_table_schema():
+    db = sql_dataset('./tests/database.yml')
+    db.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+    db.send_cmd(CMD_CREATE_TEST_TABLE)
+
+    result = db._get_table_schema(db.config['conn'], 'test_table')
+    for i in range(len(result)):
+        for j in range(len(result[i])):
+            assert result[i][j] == expected_schema[i][j]
+    
+    db.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)

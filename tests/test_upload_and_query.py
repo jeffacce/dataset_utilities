@@ -34,8 +34,6 @@ CMD_CREATE_TRUNCATED_TEST_TABLE = """
     );
 """
 
-# TODO: truncate=True, truncate=False; create a table artificially too small to hold the data columns
-
 @pytest.fixture(scope='session')
 def gen_test_csv(request):
     df = rand_df(100000)
