@@ -270,6 +270,8 @@ class dataset:
         else:
             with open(config_path, 'r', encoding='utf-8-sig') as f:
                 self.config = yaml.safe_load(f)
+            if self.config is None:
+                self.config = {}
     
     def _get_config(self, fname, **params):
         if fname in ['read', 'write']:
@@ -282,27 +284,33 @@ class dataset:
                     filepath = self.config[fname]['filepath']
             if params['filepath'] is not None:
                 filepath = params['filepath']
-            # if filepath is specified nowhere, error
-            if filepath is None:
-                raise ValueError('`filepath` must be specified as an argument or in the config file.')
             
             # backwards compatibility for kwargs scattered around global scope
-            for key in ['header', 'sheet_name', 'encoding']:
+            for key in ['header', 'sheet_name', 'encoding', 'index']:
                 if key not in params['kwargs']:
+                    # global scope
                     if key in self.config:
-                        params['kwargs'][key] = self.config[key]
+                        if not ((fname == 'read') and (key == 'index')):  # pandas read functions does not have index keyword
+                            params['kwargs'][key] = self.config[key]
+                    # local scope
                     if fname in self.config:
                         if key in self.config[fname]:
                             params['kwargs'][key] = self.config[fname][key]
             
+            # add read/write specific extra kwargs from read/write local scope
+            if fname in self.config:
+                for key in self.config[fname]:
+                    if (key not in params['kwargs']) and (key != 'filepath'):
+                        params['kwargs'][key] = self.config[fname][key]
+            
+            # set default output options for dataset.write
             if fname == 'write':
-                # set default output options for dataset.write
                 if 'index' not in params['kwargs']:
                     params['kwargs']['index'] = False
                 if 'encoding' not in params['kwargs']:
                     params['kwargs']['encoding'] = 'utf-8-sig'
 
-            return filepath, params['kwargs']  # TODO: test header, sheet_name, encoding
+            return filepath, params['kwargs']
         elif fname == 'transform':
             transform_function = None
             if 'transform' in self.config:
@@ -313,19 +321,21 @@ class dataset:
     
     def read(self, filepath=None, **kwargs):
         filepath, kwargs = self._get_config('read', filepath=filepath, kwargs=kwargs)
+        if filepath is None:
+            raise ValueError('`filepath` must be specified as an argument or in the config file.')
         
         ext = os.path.splitext(filepath)[1]
         if ext == '.csv':
             self.data = pd.read_csv(
-                self.config['filepath'],
+                filepath,
                 float_precision='round_trip',  # ? potential conflict with kwargs?
                 **kwargs,
             )
         elif ext in ['.h5', '.hdf5', '.hdf']:
-            self.data = pd.read_hdf(self.config['filepath'], **kwargs)
+            self.data = pd.read_hdf(filepath, **kwargs)
         elif ext in ['.xls', '.xlsx']:
             self.data = pd.read_excel(
-                self.config['filepath'],
+                filepath,
                 **kwargs,
             )
         else:
@@ -334,6 +344,8 @@ class dataset:
     
     def write(self, filepath=None, **kwargs):
         filepath, kwargs = self._get_config('write', filepath=filepath, kwargs=kwargs)
+        if filepath is None:
+            raise ValueError('`filepath` must be specified as an argument or in the config file.')
 
         ext = os.path.splitext(filepath)[1]
         if ext == '.csv':
@@ -348,7 +360,6 @@ class dataset:
     
     def transform(self, transform_function=None):
         transform_function = self._get_config(transform_function=transform_function)
-        # TODO: test this
         if transform_function is not None:
             self.data = transform_function(self.data)
         return self
@@ -407,7 +418,7 @@ class sql_dataset(dataset):
                         result[key] = self.config[fname][key]
                 if params[key] is not None:
                     result[key] = params[key]
-            return result.values()  # ordered dict
+            return tuple(result.values())  # ordered dict
     
     def _connect(self, conn, max_retries=3, delay=5, verbose=False, **kwargs):
         '''
@@ -523,6 +534,8 @@ class sql_dataset(dataset):
             template_vars=template_vars,
         )
 
+        if conn is None:
+            raise ValueError('`conn` connection details must be specified as an argument or in the config file.')
         if get_data is None:
             raise ValueError('`get_data` SQL query must be specified as an argument or in the config file.')
         
