@@ -441,7 +441,7 @@ def test_cast_and_clean_df_truncate():
     
 
 def test__table_exists():
-    db = sql_dataset('./tests/config/database.yml')
+    db = sql_dataset('./tests/config/integration/database.yml')
     db.send_cmd("IF OBJECT_ID('test_table', 'U') IS NOT NULL DROP TABLE test_table;")
     db.send_cmd("CREATE TABLE test_table ([uid] nvarchar(100) NULL);")
     conn = pyodbc.connect(**db.config['conn'])
@@ -452,7 +452,7 @@ def test__table_exists():
 
 
 def test__get_table_schema():
-    db = sql_dataset('./tests/config/database.yml')
+    db = sql_dataset('./tests/config/integration/database.yml')
     db.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
     db.send_cmd(CMD_CREATE_TEST_TABLE)
 
@@ -466,12 +466,12 @@ def test__get_table_schema():
 
 
 def test__connect():
-    db = sql_dataset('./tests/config/database.yml')
+    db = sql_dataset('./tests/config/integration/database.yml')
     conn = db._connect(db.config['conn'])
 
 
 def test__connect_fake_database_raises_connection_error(verbose=True):
-    sd = sql_dataset('./tests/config/fake_database.yml')
+    sd = sql_dataset('./tests/config/integration/fake_database.yml')
     with pytest.raises(requests.ConnectionError):
         sd._connect(sd.config['conn'], max_retries=1, delay=5, verbose=False)
 
