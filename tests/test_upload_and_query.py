@@ -45,7 +45,7 @@ def gen_test_csv(request):
 
 
 def test_read_upload_query_bcp(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/config/database.yml').read()
+    sd = sql_dataset('./tests/config/integration/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -63,7 +63,7 @@ def test_read_upload_query_bcp(gen_test_csv, verbose=True):
 
 
 def test_read_upload_query_bcp_truncate(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/config/database.yml').read()
+    sd = sql_dataset('./tests/config/integration/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -89,7 +89,7 @@ def test_read_upload_query_bcp_truncate(gen_test_csv, verbose=True):
 
 
 def test_read_upload_query_pyodbc(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/config/database.yml').read()
+    sd = sql_dataset('./tests/config/integration/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
@@ -107,7 +107,7 @@ def test_read_upload_query_pyodbc(gen_test_csv, verbose=True):
 
 
 def test_read_upload_query_pyodbc_truncate(gen_test_csv, verbose=True):
-    sd = sql_dataset('./tests/config/database.yml').read()
+    sd = sql_dataset('./tests/config/integration/database.yml').read()
     sd.data['dt'] = pd.to_datetime(sd.data['dt'])
     df_orig = sd.data.copy()
 
