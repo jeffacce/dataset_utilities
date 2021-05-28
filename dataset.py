@@ -708,7 +708,7 @@ class sql_dataset(dataset):
                 stdout = subprocess.DEVNULL
             p = subprocess.Popen([
                 'bcp',
-                self.config['table'],
+                table,
                 'in',
                 temp_filename + '.csv',
                 '-c', r'-t⁂', '-k', '-E',
@@ -743,7 +743,7 @@ class sql_dataset(dataset):
                 batch_range = tqdm(batch_range)
             for i in batch_range:
                 chunk = self.data.iloc[i*chunksize : (i+1)*chunksize].values
-                sql = 'INSERT INTO %s (%s) VALUES (%s)' % (self.config['table'], colnames, blanks)
+                sql = 'INSERT INTO %s (%s) VALUES (%s)' % (table, colnames, blanks)
                 chunk[pd.isna(chunk)] = None  # cast [pd.NA, np.nan] to None for pyodbc
 
                 try:
