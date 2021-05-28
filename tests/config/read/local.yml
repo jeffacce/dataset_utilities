@@ -1,0 +1,7 @@
+read:
+  filepath: 'r.xls'
+  header: 'r_header'
+  sheet_name: 'r_sheet_name'
+  encoding: 'r_encoding'
+  kwarg0: 'r_kwarg0'
+  kwarg1: 'r_kwarg1'

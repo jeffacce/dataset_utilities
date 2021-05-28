@@ -1,0 +1,21 @@
+query:
+  get_data: 'q_get_data'
+  get_row_count: 'q_get_row_count'
+  chunksize: 'q_chunksize'
+
+filepath: 'g.xls'
+header: 'g_header'
+index: 'g_index'
+sheet_name: 'g_sheet_name'
+encoding: 'g_encoding'
+kwarg0: 'g_kwarg0'
+kwarg1: 'g_kwarg1'
+
+conn:
+  server: 'g_conn_server'
+  user: 'g_conn_user'
+  password: 'g_conn_password'
+  database: 'g_conn_database'
+  driver: 'g_conn_driver'
+
+transform: numpy.abs

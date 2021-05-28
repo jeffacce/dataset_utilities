@@ -474,3 +474,813 @@ def test__connect_fake_database_raises_connection_error(verbose=True):
     sd = sql_dataset('./tests/config/fake_database.yml')
     with pytest.raises(requests.ConnectionError):
         sd._connect(sd.config['conn'], max_retries=1, delay=5, verbose=False)
+
+
+READ_OVERRIDE_PARAMS = {
+    'filepath': 'p.xls',
+    'kwargs': {
+        'header': 'p_header',
+        'sheet_name': 'p_sheet_name',
+        'encoding': 'p_encoding',
+        'kwarg0': 'p_kwarg0',
+        'kwarg1': 'p_kwarg1',
+    },
+}
+
+def test__get_config_read_default():
+    db = sql_dataset('./tests/config/empty.yml')
+    config = db._get_config(
+        'read',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        None,
+        {},
+    )
+
+def test__get_config_read_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'read',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        'g.xls',
+        {
+            'header': 'g_header',
+            'sheet_name': 'g_sheet_name',
+            'encoding': 'g_encoding',
+        },
+    )
+
+
+def test__get_config_read_local():
+    db = sql_dataset('./tests/config/read/local.yml')
+    config = db._get_config(
+        'read',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        'r.xls',
+        {
+            'header': 'r_header',
+            'sheet_name': 'r_sheet_name',
+            'encoding': 'r_encoding',
+            'kwarg0': 'r_kwarg0',
+            'kwarg1': 'r_kwarg1',
+        }, 
+    )
+
+
+def test__get_config_read_local_overrides_global():
+    db = sql_dataset('./tests/config/read/local_global.yml')
+    config = db._get_config(
+        'read',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        'r.xls',
+        {
+            'header': 'r_header',
+            'sheet_name': 'r_sheet_name',
+            'encoding': 'r_encoding',
+            'kwarg0': 'r_kwarg0',
+            'kwarg1': 'r_kwarg1',
+        },
+    )
+
+
+def test__get_config_read_param_overrides_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'read',
+        **READ_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p.xls',
+        {
+            'header': 'p_header',
+            'sheet_name': 'p_sheet_name',
+            'encoding': 'p_encoding',
+            'kwarg0': 'p_kwarg0',
+            'kwarg1': 'p_kwarg1',
+        },
+    )
+
+
+def test__get_config_read_param_overrides_local():
+    db = sql_dataset('./tests/config/read/local.yml')
+    config = db._get_config(
+        'read',
+        **READ_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p.xls',
+        {
+            'header': 'p_header',
+            'sheet_name': 'p_sheet_name',
+            'encoding': 'p_encoding',
+            'kwarg0': 'p_kwarg0',
+            'kwarg1': 'p_kwarg1',
+        },
+    )
+
+
+def test__get_config_read_param_overrides_local_overrides_global():
+    db = sql_dataset('./tests/config/read/local_global.yml')
+    config = db._get_config(
+        'read',
+        **READ_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p.xls',
+        {
+            'header': 'p_header',
+            'sheet_name': 'p_sheet_name',
+            'encoding': 'p_encoding',
+            'kwarg0': 'p_kwarg0',
+            'kwarg1': 'p_kwarg1',
+        },
+    )
+
+
+WRITE_OVERRIDE_PARAMS = {
+    'filepath': 'p.xls',
+    'kwargs': {
+        'header': 'p_header',
+        'index': 'p_index',
+        'sheet_name': 'p_sheet_name',
+        'encoding': 'p_encoding',
+        'kwarg0': 'p_kwarg0',
+        'kwarg1': 'p_kwarg1',
+    },
+}
+
+
+def test__get_config_write_default():
+    db = sql_dataset('./tests/config/empty.yml')
+    config = db._get_config(
+        'write',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        None,
+        {
+            'index': False,
+            'encoding': 'utf-8-sig',
+        }
+    )
+
+
+def test__get_config_write_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'write',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        'g.xls',
+        {
+            'header': 'g_header',
+            'index': 'g_index',
+            'sheet_name': 'g_sheet_name',
+            'encoding': 'g_encoding',
+        },
+    )
+
+
+def test__get_config_write_local():
+    db = sql_dataset('./tests/config/write/local.yml')
+    config = db._get_config(
+        'write',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        'w.xls',
+        {
+            'header': 'w_header',
+            'index': 'w_index',
+            'sheet_name': 'w_sheet_name',
+            'encoding': 'w_encoding',
+            'kwarg0': 'w_kwarg0',
+            'kwarg1': 'w_kwarg1',
+        },
+    )
+
+
+def test__get_config_read_local_overrides_global():
+    db = sql_dataset('./tests/config/write/local_global.yml')
+    config = db._get_config(
+        'write',
+        filepath=None,
+        kwargs={},
+    )
+    assert config == (
+        'w.xls',
+        {
+            'header': 'w_header',
+            'index': 'w_index',
+            'sheet_name': 'w_sheet_name',
+            'encoding': 'w_encoding',
+            'kwarg0': 'w_kwarg0',
+            'kwarg1': 'w_kwarg1',
+        },
+    )
+
+
+def test__get_config_write_param_overrides_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'write',
+        **WRITE_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p.xls',
+        {
+            'header': 'p_header',
+            'index': 'p_index',
+            'sheet_name': 'p_sheet_name',
+            'encoding': 'p_encoding',
+            'kwarg0': 'p_kwarg0',
+            'kwarg1': 'p_kwarg1',
+        },
+    )
+
+
+def test__get_config_write_param_overrides_local():
+    db = sql_dataset('./tests/config/write/local.yml')
+    config = db._get_config(
+        'write',
+        **WRITE_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p.xls',
+        {
+            'header': 'p_header',
+            'index': 'p_index',
+            'sheet_name': 'p_sheet_name',
+            'encoding': 'p_encoding',
+            'kwarg0': 'p_kwarg0',
+            'kwarg1': 'p_kwarg1',
+        },
+    )
+
+
+def test__get_config_write_param_overrides_local_overrides_global():
+    db = sql_dataset('./tests/config/write/local_global.yml')
+    config = db._get_config(
+        'write',
+        **WRITE_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p.xls',
+        {
+            'header': 'p_header',
+            'index': 'p_index',
+            'sheet_name': 'p_sheet_name',
+            'encoding': 'p_encoding',
+            'kwarg0': 'p_kwarg0',
+            'kwarg1': 'p_kwarg1',
+        },
+    )
+
+
+def test__get_config_transform_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'transform',
+        transform_function=None,
+    )
+    assert config is np.abs
+
+
+def test__get_config_transform_param_overrides_global():
+    def f(x):
+        return x
+    
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'transform',
+        transform_function=f,
+    )
+    assert config is f
+
+
+QUERY_EMPTY_PARAMS = {
+    'conn': None,
+    'get_data': None,
+    'get_row_count': None,
+    'chunksize': None,
+    'template_vars': {},
+}
+
+QUERY_OVERRIDE_PARAMS = {
+    'conn': {
+        'server': 'p_conn_server',
+        'user': 'p_conn_user',
+        'password': 'p_conn_password',
+        'database': 'p_conn_database',
+        'driver': 'p_conn_driver',
+    },
+    'get_data': 'p_get_data',
+    'get_row_count': 'p_get_row_count',
+    'chunksize': 'p_chunksize',
+    'template_vars': {
+        'p_template_var_0': 'foo',
+        'p_template_var_1': 'bar',
+    },
+}
+
+
+def test__get_config_query_default():
+    db = sql_dataset('./tests/config/empty.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_EMPTY_PARAMS,
+    )
+    assert config == (
+        None,
+        None,
+        None,
+        1000,
+        {},
+    )
+
+
+def test__get_config_query_local():
+    db = sql_dataset('./tests/config/query/local.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_EMPTY_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'q_conn_server',
+            'user': 'q_conn_user',
+            'password': 'q_conn_password',
+            'database': 'q_conn_database',
+            'driver': 'q_conn_driver',
+        },
+        'q_get_data',
+        'q_get_row_count',
+        'q_chunksize',
+        {},
+    )
+
+
+def test__get_config_query_local_no_conn_global():
+    db = sql_dataset('./tests/config/query/local_no_conn_global.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_EMPTY_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'g_conn_server',
+            'user': 'g_conn_user',
+            'password': 'g_conn_password',
+            'database': 'g_conn_database',
+            'driver': 'g_conn_driver',
+        },
+        'q_get_data',
+        'q_get_row_count',
+        'q_chunksize',
+        {},
+    )
+
+
+def test__get_config_query_local_overrides_global():
+    db = sql_dataset('./tests/config/query/local_global.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_EMPTY_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'q_conn_server',
+            'user': 'q_conn_user',
+            'password': 'q_conn_password',
+            'database': 'q_conn_database',
+            'driver': 'q_conn_driver',
+        },
+        'q_get_data',
+        'q_get_row_count',
+        'q_chunksize',
+        {},
+    )
+
+
+def test__get_config_query_params_overrides_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_get_data',
+        'p_get_row_count',
+        'p_chunksize',
+        {
+            'p_template_var_0': 'foo',
+            'p_template_var_1': 'bar',
+        },
+    )
+
+
+def test__get_config_query_params_overrides_local():
+    db = sql_dataset('./tests/config/query/local.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_get_data',
+        'p_get_row_count',
+        'p_chunksize',
+        {
+            'p_template_var_0': 'foo',
+            'p_template_var_1': 'bar',
+        },
+    )
+
+
+def test__get_config_query_params_overrides_local_overrides_global():
+    db = sql_dataset('./tests/config/query/local_global.yml')
+    config = db._get_config(
+        'query',
+        **QUERY_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_get_data',
+        'p_get_row_count',
+        'p_chunksize',
+        {
+            'p_template_var_0': 'foo',
+            'p_template_var_1': 'bar',
+        },
+    )
+
+
+UPLOAD_EMPTY_PARAMS = {
+    'conn': None,
+    'table': None,
+    'mode': None,
+    'bcp': None,
+    'truncate': None,
+    'schema_sample': None,
+    'chunksize': None,
+    'verbose': None,
+}
+
+UPLOAD_OVERRIDE_PARAMS = {
+    'conn': {
+        'server': 'p_conn_server',
+        'user': 'p_conn_user',
+        'password': 'p_conn_password',
+        'database': 'p_conn_database',
+        'driver': 'p_conn_driver',
+    },
+    'table': 'p_table',
+    'mode': 'p_mode',
+    'bcp': 'p_bcp',
+    'truncate': 'p_truncate',
+    'schema_sample': 'p_schema_sample',
+    'chunksize': 'p_chunksize',
+    'verbose': 'p_verbose',
+}
+
+
+def test__get_config_upload_default():
+    db = sql_dataset('./tests/config/empty.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_EMPTY_PARAMS,
+    )
+    assert config == (
+        None,
+        None,
+        'append',
+        True,
+        False,
+        None,
+        1000,
+        False,
+    )
+
+
+def test__get_config_upload_local():
+    db = sql_dataset('./tests/config/upload/local.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_EMPTY_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'u_conn_server',
+            'user': 'u_conn_user',
+            'password': 'u_conn_password',
+            'database': 'u_conn_database',
+            'driver': 'u_conn_driver',
+        },
+        'u_table',
+        'u_mode',
+        'u_bcp',
+        'u_truncate',
+        'u_schema_sample',
+        'u_chunksize',
+        'u_verbose',
+    )
+
+
+def test__get_config_upload_local_no_conn_global():
+    db = sql_dataset('./tests/config/upload/local_no_conn_global.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_EMPTY_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'g_conn_server',
+            'user': 'g_conn_user',
+            'password': 'g_conn_password',
+            'database': 'g_conn_database',
+            'driver': 'g_conn_driver',
+        },
+        'u_table',
+        'u_mode',
+        'u_bcp',
+        'u_truncate',
+        'u_schema_sample',
+        'u_chunksize',
+        'u_verbose',
+    )
+
+
+def test__get_config_upload_local_overrides_global():
+    db = sql_dataset('./tests/config/upload/local_global.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_EMPTY_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'u_conn_server',
+            'user': 'u_conn_user',
+            'password': 'u_conn_password',
+            'database': 'u_conn_database',
+            'driver': 'u_conn_driver',
+        },
+        'u_table',
+        'u_mode',
+        'u_bcp',
+        'u_truncate',
+        'u_schema_sample',
+        'u_chunksize',
+        'u_verbose',
+    )
+
+
+def test__get_config_upload_params_overrides_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_table',
+        'p_mode',
+        'p_bcp',
+        'p_truncate',
+        'p_schema_sample',
+        'p_chunksize',
+        'p_verbose',
+    )
+
+
+def test__get_config_upload_params_overrides_local():
+    db = sql_dataset('./tests/config/upload/local.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_table',
+        'p_mode',
+        'p_bcp',
+        'p_truncate',
+        'p_schema_sample',
+        'p_chunksize',
+        'p_verbose',
+    )
+
+
+def test__get_config_upload_params_overrides_local_overrides_global():
+    db = sql_dataset('./tests/config/upload/local_global.yml')
+    config = db._get_config(
+        'upload',
+        **UPLOAD_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_table',
+        'p_mode',
+        'p_bcp',
+        'p_truncate',
+        'p_schema_sample',
+        'p_chunksize',
+        'p_verbose',
+    )
+
+
+SEND_CMD_EMPTY_PARAMS = {
+    'cmd': None,
+    'conn': None,
+    'verbose': None,
+}
+
+SEND_CMD_OVERRIDE_PARAMS = {
+    'cmd': 'p_cmd',
+    'conn': {
+        'server': 'p_conn_server',
+        'user': 'p_conn_user',
+        'password': 'p_conn_password',
+        'database': 'p_conn_database',
+        'driver': 'p_conn_driver',
+    },
+    'verbose': 'p_verbose',
+}
+
+
+def test__get_config_send_cmd_default():
+    db = sql_dataset('./tests/config/empty.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_EMPTY_PARAMS,
+    )
+    assert config == (
+        None,
+        None,
+        False,
+    )
+
+
+def test__get_config_send_cmd_local():
+    db = sql_dataset('./tests/config/send_cmd/local.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_EMPTY_PARAMS,
+    )
+    assert config == (
+        'sc_cmd',
+        {
+            'server': 'sc_conn_server',
+            'user': 'sc_conn_user',
+            'password': 'sc_conn_password',
+            'database': 'sc_conn_database',
+            'driver': 'sc_conn_driver',
+        },
+        'sc_verbose',
+    )
+
+
+def test__get_config_send_cmd_local_no_conn_global():
+    db = sql_dataset('./tests/config/send_cmd/local_no_conn_global.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_EMPTY_PARAMS,
+    )
+    assert config == (
+        'sc_cmd',
+        {
+            'server': 'g_conn_server',
+            'user': 'g_conn_user',
+            'password': 'g_conn_password',
+            'database': 'g_conn_database',
+            'driver': 'g_conn_driver',
+        },
+        'sc_verbose',
+    )
+
+
+def test__get_config_send_cmd_local_overrides_global():
+    db = sql_dataset('./tests/config/send_cmd/local_global.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_EMPTY_PARAMS,
+    )
+    assert config == (
+        'sc_cmd',
+        {
+            'server': 'sc_conn_server',
+            'user': 'sc_conn_user',
+            'password': 'sc_conn_password',
+            'database': 'sc_conn_database',
+            'driver': 'sc_conn_driver',
+        },
+        'sc_verbose',
+    )
+
+
+def test__get_config_send_cmd_params_overrides_global():
+    db = sql_dataset('./tests/config/global.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p_cmd',
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_verbose',
+    )
+
+
+def test__get_config_send_cmd_params_overrides_local():
+    db = sql_dataset('./tests/config/send_cmd/local.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p_cmd',
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_verbose',
+    )
+
+
+def test__get_config_send_cmd_params_overrides_local_overrides_global():
+    db = sql_dataset('./tests/config/send_cmd/local_global.yml')
+    config = db._get_config(
+        'send_cmd',
+        **SEND_CMD_OVERRIDE_PARAMS,
+    )
+    assert config == (
+        'p_cmd',
+        {
+            'server': 'p_conn_server',
+            'user': 'p_conn_user',
+            'password': 'p_conn_password',
+            'database': 'p_conn_database',
+            'driver': 'p_conn_driver',
+        },
+        'p_verbose',
+    )

@@ -1,0 +1,9 @@
+send_cmd:
+  conn:
+    server: 'sc_conn_server'
+    user: 'sc_conn_user'
+    password: 'sc_conn_password'
+    database: 'sc_conn_database'
+    driver: 'sc_conn_driver'
+  cmd: 'sc_cmd'
+  verbose: 'sc_verbose'

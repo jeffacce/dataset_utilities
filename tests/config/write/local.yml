@@ -1,0 +1,8 @@
+write:
+  filepath: 'w.xls'
+  header: 'w_header'
+  index: 'w_index'
+  sheet_name: 'w_sheet_name'
+  encoding: 'w_encoding'
+  kwarg0: 'w_kwarg0'
+  kwarg1: 'w_kwarg1'
