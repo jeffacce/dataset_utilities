@@ -359,7 +359,10 @@ class dataset:
         return self
     
     def transform(self, transform_function=None):
-        transform_function = self._get_config(transform_function=transform_function)
+        transform_function = self._get_config(
+            'transform',
+            transform_function=transform_function,
+        )
         if transform_function is not None:
             self.data = transform_function(self.data)
         return self
