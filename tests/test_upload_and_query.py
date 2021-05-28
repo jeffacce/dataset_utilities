@@ -1,3 +1,4 @@
+from .test_dataset import CMD_CREATE_TEST_TABLE
 import pytest
 import pandas as pd
 import numpy as np
@@ -35,13 +36,25 @@ CMD_CREATE_TRUNCATED_TEST_TABLE = """
 """
 
 
+def cleanup_test_data_csv():
+    try:
+        os.remove('./tests/test_data.csv')
+    except:
+        pass
+
+
+def cleanup_test_data_copy_csv():
+    try:
+        os.remove('./tests/test_data_copy.csv')
+    except:
+        pass
+
+
 @pytest.fixture(scope='session')
 def gen_test_csv(request):
     df = rand_df(100000)
     df.to_csv('./tests/test_data.csv', encoding='utf-8-sig', index=False)
-    def finalize():
-        os.remove('./tests/test_data.csv')
-    request.addfinalizer(finalize)
+    request.addfinalizer(cleanup_test_data_csv)
 
 
 def test_read_upload_query_bcp(gen_test_csv, verbose=True):
@@ -131,3 +144,55 @@ def test_read_upload_query_pyodbc_truncate(gen_test_csv, verbose=True):
     pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
 
     sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+
+
+def test_read_upload_query_write_bcp(gen_test_csv, verbose=True):
+    sd = sql_dataset('./tests/config/integration/read_upload_query_write.yml').read()
+    sd.data['dt'] = pd.to_datetime(sd.data['dt'])
+    df_orig = sd.data.copy()
+
+    sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+    cleanup_test_data_copy_csv()
+
+    sd.upload(mode='overwrite_table', bcp=True, verbose=verbose)
+    sd.query().write()
+    df_queried = pd.read_csv('./tests/test_data_copy.csv')
+    df_queried['dt'] = pd.to_datetime(df_queried['dt'])
+    pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
+
+    cleanup_test_data_copy_csv()
+
+    sd.upload(mode='overwrite_data', bcp=True, verbose=verbose)
+    sd.query().write()
+    df_queried = pd.read_csv('./tests/test_data_copy.csv')
+    df_queried['dt'] = pd.to_datetime(df_queried['dt'])
+    pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
+
+    sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+    cleanup_test_data_copy_csv()
+
+
+def test_read_upload_query_write_pyodbc(gen_test_csv, verbose=True):
+    sd = sql_dataset('./tests/config/integration/read_upload_query_write.yml').read()
+    sd.data['dt'] = pd.to_datetime(sd.data['dt'])
+    df_orig = sd.data.copy()
+
+    sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+    cleanup_test_data_copy_csv()
+
+    sd.upload(mode='overwrite_table', bcp=False, verbose=verbose)
+    sd.query().write()
+    df_queried = pd.read_csv('./tests/test_data_copy.csv')
+    df_queried['dt'] = pd.to_datetime(df_queried['dt'])
+    pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
+
+    cleanup_test_data_copy_csv()
+
+    sd.upload(mode='overwrite_data', bcp=False, verbose=verbose)
+    sd.query().write()
+    df_queried = pd.read_csv('./tests/test_data_copy.csv')
+    df_queried['dt'] = pd.to_datetime(df_queried['dt'])
+    pd.testing.assert_frame_equal(df_queried, df_orig, check_dtype=False, check_names=False)
+
+    sd.send_cmd(CMD_DROP_TEST_TABLE_IF_EXISTS)
+    cleanup_test_data_copy_csv()
