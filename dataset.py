@@ -392,9 +392,9 @@ class sql_dataset(dataset):
         elif fname in ['query', 'send_cmd', 'upload']:
             if fname == 'query':
                 result = OrderedDict([
-                    ('conn', self.config.get('conn', None)),
                     ('get_data', None),
                     ('get_row_count', None),
+                    ('conn', self.config.get('conn', None)),
                     ('chunksize', 1000),
                     ('template_vars', params['template_vars']),
                 ])
@@ -406,10 +406,10 @@ class sql_dataset(dataset):
                 ])
             elif fname == 'upload':
                 result = OrderedDict([ 
-                    ('conn', self.config.get('conn', None)),
                     ('table', self.config.get('table', None)),
                     ('mode', 'append'),
                     ('bcp', True),
+                    ('conn', self.config.get('conn', None)),
                     ('truncate', False),
                     ('schema_sample', None),
                     ('chunksize', 1000),
@@ -499,15 +499,9 @@ class sql_dataset(dataset):
         result = pd.read_sql(query, conn).values.item() == 1
         return result
 
-    def query(self, conn=None, get_data=None, get_row_count=None, chunksize=None, **template_vars):
+    def query(self, get_data=None, get_row_count=None, conn=None, chunksize=None, **template_vars):
         '''
         Query a database.
-        `conn`: connection config dictionary for `pyodbc`.
-            - `server`: server address.
-            - `user`(`uid`): username.
-            - `password`(`pwd`): password.
-            - `database`: database name.
-            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `get_data`:
             SQL query for the actual data.
             Must be supplied either in config or as an argument here.
@@ -515,6 +509,12 @@ class sql_dataset(dataset):
         `get_row_count`:
             Display a progress bar if supplied in config or as an argument here.
             If both are supplied, argument always overrides config.
+        `conn`: connection config dictionary for `pyodbc`.
+            - `server`: server address.
+            - `user`(`uid`): username.
+            - `password`(`pwd`): password.
+            - `database`: database name.
+            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `chunksize`:
             Chunk size. Default 1000.
         `template_vars`:
@@ -523,16 +523,16 @@ class sql_dataset(dataset):
         '''
 
         (
-            conn,
             get_data,
             get_row_count,
+            conn,
             chunksize,
             template_vars,
         ) = self._get_config(
             'query',
-            conn=conn,
             get_data=get_data,
             get_row_count=get_row_count,
+            conn=conn,
             chunksize=chunksize,
             template_vars=template_vars,
         )
@@ -603,10 +603,10 @@ class sql_dataset(dataset):
 
     def upload(
         self,
-        conn=None,
         table=None,
         mode=None,
         bcp=None,
+        conn=None,
         truncate=None,
         schema_sample=None,
         chunksize=None,
@@ -614,18 +614,18 @@ class sql_dataset(dataset):
     ):
         '''
         Upload data to database.
-        `conn`: connection config dictionary for `pyodbc`.
-            - `server`: server address.
-            - `user`(`uid`): username.
-            - `password`(`pwd`): password.
-            - `database`: database name.
-            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `table`: table name.
         `mode`:
             - `append`: append to an existing table. (Default)
             - `overwrite_data`: truncate the existing table and upload data.
             - `overwrite_table`: drop the existing table, create a new table, and upload data.
         `bcp`: use MS SQL `bcp` utilities. Default True. If False, uses pyodbc with `fast_executemany`.
+        `conn`: connection config dictionary for `pyodbc`.
+            - `server`: server address.
+            - `user`(`uid`): username.
+            - `password`(`pwd`): password.
+            - `database`: database name.
+            - `driver`: driver for `pyodbc`. List available drivers with `pyodbc.drivers()`.
         `truncate`: whether to silently truncate values that are too long to fit. (True = truncate silently; False = raise warnings)
         `schema_sample`: # of rows scanned for automatically generating the CREATE schema. Default None (scan the entire dataframe).
         `chunksize`: chunk size. Default 1000.
@@ -636,20 +636,20 @@ class sql_dataset(dataset):
             print('Determining data types.')
         
         (
-            conn_dict,
             table,
             mode,
             bcp,
+            conn_dict,
             truncate,
             schema_sample,
             chunksize,
             verbose,
         ) = self._get_config(
             'upload',
-            conn=conn,
             table=table,
             mode=mode,
             bcp=bcp,
+            conn=conn,
             truncate=truncate,
             schema_sample=schema_sample,
             chunksize=chunksize,

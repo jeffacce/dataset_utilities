@@ -1,10 +1,10 @@
 query:
+  get_data: 'q_get_data'
+  get_row_count: 'q_get_row_count'
   conn:
     server: 'q_conn_server'
     user: 'q_conn_user'
     password: 'q_conn_password'
     database: 'q_conn_database'
     driver: 'q_conn_driver'
-  get_data: 'q_get_data'
-  get_row_count: 'q_get_row_count'
   chunksize: 'q_chunksize'

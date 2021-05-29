@@ -2,28 +2,28 @@ read:
   filepath: ./tests/test_data.csv
 
 upload:
-  conn:
-    server: 127.0.0.1,1433
-    user: sa
-    password: j0wMYnzpDS4!2Py6
-    database: test_db
-    driver: "ODBC Driver 17 for SQL Server"
   table: test_table
   bcp: True
-
-query:
   conn:
     server: 127.0.0.1,1433
     user: sa
     password: j0wMYnzpDS4!2Py6
     database: test_db
     driver: "ODBC Driver 17 for SQL Server"
+
+query:
   get_data: "
     SELECT * FROM test_table
   "
   get_row_count: "
     SELECT COUNT(*) FROM test_table
   "
+  conn:
+    server: 127.0.0.1,1433
+    user: sa
+    password: j0wMYnzpDS4!2Py6
+    database: test_db
+    driver: "ODBC Driver 17 for SQL Server"
 
 write:
   filepath: ./tests/test_data_copy.csv

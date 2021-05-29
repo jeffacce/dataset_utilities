@@ -774,14 +774,16 @@ def test__get_config_transform_param_overrides_global():
 
 
 QUERY_EMPTY_PARAMS = {
-    'conn': None,
     'get_data': None,
     'get_row_count': None,
+    'conn': None,
     'chunksize': None,
     'template_vars': {},
 }
 
 QUERY_OVERRIDE_PARAMS = {
+    'get_data': 'p_get_data',
+    'get_row_count': 'p_get_row_count',
     'conn': {
         'server': 'p_conn_server',
         'user': 'p_conn_user',
@@ -789,8 +791,6 @@ QUERY_OVERRIDE_PARAMS = {
         'database': 'p_conn_database',
         'driver': 'p_conn_driver',
     },
-    'get_data': 'p_get_data',
-    'get_row_count': 'p_get_row_count',
     'chunksize': 'p_chunksize',
     'template_vars': {
         'p_template_var_0': 'foo',
@@ -821,6 +821,8 @@ def test__get_config_query_local():
         **QUERY_EMPTY_PARAMS,
     )
     assert config == (
+        'q_get_data',
+        'q_get_row_count',
         {
             'server': 'q_conn_server',
             'user': 'q_conn_user',
@@ -828,8 +830,6 @@ def test__get_config_query_local():
             'database': 'q_conn_database',
             'driver': 'q_conn_driver',
         },
-        'q_get_data',
-        'q_get_row_count',
         'q_chunksize',
         {},
     )
@@ -842,6 +842,8 @@ def test__get_config_query_local_no_conn_global():
         **QUERY_EMPTY_PARAMS,
     )
     assert config == (
+        'q_get_data',
+        'q_get_row_count',
         {
             'server': 'g_conn_server',
             'user': 'g_conn_user',
@@ -849,8 +851,6 @@ def test__get_config_query_local_no_conn_global():
             'database': 'g_conn_database',
             'driver': 'g_conn_driver',
         },
-        'q_get_data',
-        'q_get_row_count',
         'q_chunksize',
         {},
     )
@@ -863,6 +863,8 @@ def test__get_config_query_local_overrides_global():
         **QUERY_EMPTY_PARAMS,
     )
     assert config == (
+        'q_get_data',
+        'q_get_row_count',
         {
             'server': 'q_conn_server',
             'user': 'q_conn_user',
@@ -870,8 +872,6 @@ def test__get_config_query_local_overrides_global():
             'database': 'q_conn_database',
             'driver': 'q_conn_driver',
         },
-        'q_get_data',
-        'q_get_row_count',
         'q_chunksize',
         {},
     )
@@ -884,6 +884,8 @@ def test__get_config_query_params_overrides_global():
         **QUERY_OVERRIDE_PARAMS,
     )
     assert config == (
+        'p_get_data',
+        'p_get_row_count',
         {
             'server': 'p_conn_server',
             'user': 'p_conn_user',
@@ -891,8 +893,6 @@ def test__get_config_query_params_overrides_global():
             'database': 'p_conn_database',
             'driver': 'p_conn_driver',
         },
-        'p_get_data',
-        'p_get_row_count',
         'p_chunksize',
         {
             'p_template_var_0': 'foo',
@@ -908,6 +908,8 @@ def test__get_config_query_params_overrides_local():
         **QUERY_OVERRIDE_PARAMS,
     )
     assert config == (
+        'p_get_data',
+        'p_get_row_count',
         {
             'server': 'p_conn_server',
             'user': 'p_conn_user',
@@ -915,8 +917,6 @@ def test__get_config_query_params_overrides_local():
             'database': 'p_conn_database',
             'driver': 'p_conn_driver',
         },
-        'p_get_data',
-        'p_get_row_count',
         'p_chunksize',
         {
             'p_template_var_0': 'foo',
@@ -932,6 +932,8 @@ def test__get_config_query_params_overrides_local_overrides_global():
         **QUERY_OVERRIDE_PARAMS,
     )
     assert config == (
+        'p_get_data',
+        'p_get_row_count',
         {
             'server': 'p_conn_server',
             'user': 'p_conn_user',
@@ -939,8 +941,6 @@ def test__get_config_query_params_overrides_local_overrides_global():
             'database': 'p_conn_database',
             'driver': 'p_conn_driver',
         },
-        'p_get_data',
-        'p_get_row_count',
         'p_chunksize',
         {
             'p_template_var_0': 'foo',
@@ -950,10 +950,10 @@ def test__get_config_query_params_overrides_local_overrides_global():
 
 
 UPLOAD_EMPTY_PARAMS = {
-    'conn': None,
     'table': None,
     'mode': None,
     'bcp': None,
+    'conn': None,
     'truncate': None,
     'schema_sample': None,
     'chunksize': None,
@@ -961,6 +961,9 @@ UPLOAD_EMPTY_PARAMS = {
 }
 
 UPLOAD_OVERRIDE_PARAMS = {
+    'table': 'p_table',
+    'mode': 'p_mode',
+    'bcp': 'p_bcp',
     'conn': {
         'server': 'p_conn_server',
         'user': 'p_conn_user',
@@ -968,9 +971,6 @@ UPLOAD_OVERRIDE_PARAMS = {
         'database': 'p_conn_database',
         'driver': 'p_conn_driver',
     },
-    'table': 'p_table',
-    'mode': 'p_mode',
-    'bcp': 'p_bcp',
     'truncate': 'p_truncate',
     'schema_sample': 'p_schema_sample',
     'chunksize': 'p_chunksize',
@@ -986,9 +986,9 @@ def test__get_config_upload_default():
     )
     assert config == (
         None,
-        None,
         'append',
         True,
+        None,
         False,
         None,
         1000,
@@ -1003,6 +1003,9 @@ def test__get_config_upload_local():
         **UPLOAD_EMPTY_PARAMS,
     )
     assert config == (
+        'u_table',
+        'u_mode',
+        'u_bcp',
         {
             'server': 'u_conn_server',
             'user': 'u_conn_user',
@@ -1010,9 +1013,6 @@ def test__get_config_upload_local():
             'database': 'u_conn_database',
             'driver': 'u_conn_driver',
         },
-        'u_table',
-        'u_mode',
-        'u_bcp',
         'u_truncate',
         'u_schema_sample',
         'u_chunksize',
@@ -1027,6 +1027,9 @@ def test__get_config_upload_local_no_conn_global():
         **UPLOAD_EMPTY_PARAMS,
     )
     assert config == (
+        'u_table',
+        'u_mode',
+        'u_bcp',
         {
             'server': 'g_conn_server',
             'user': 'g_conn_user',
@@ -1034,9 +1037,6 @@ def test__get_config_upload_local_no_conn_global():
             'database': 'g_conn_database',
             'driver': 'g_conn_driver',
         },
-        'u_table',
-        'u_mode',
-        'u_bcp',
         'u_truncate',
         'u_schema_sample',
         'u_chunksize',
@@ -1051,6 +1051,9 @@ def test__get_config_upload_local_overrides_global():
         **UPLOAD_EMPTY_PARAMS,
     )
     assert config == (
+        'u_table',
+        'u_mode',
+        'u_bcp',
         {
             'server': 'u_conn_server',
             'user': 'u_conn_user',
@@ -1058,9 +1061,6 @@ def test__get_config_upload_local_overrides_global():
             'database': 'u_conn_database',
             'driver': 'u_conn_driver',
         },
-        'u_table',
-        'u_mode',
-        'u_bcp',
         'u_truncate',
         'u_schema_sample',
         'u_chunksize',
@@ -1075,6 +1075,9 @@ def test__get_config_upload_params_overrides_global():
         **UPLOAD_OVERRIDE_PARAMS,
     )
     assert config == (
+        'p_table',
+        'p_mode',
+        'p_bcp',
         {
             'server': 'p_conn_server',
             'user': 'p_conn_user',
@@ -1082,9 +1085,6 @@ def test__get_config_upload_params_overrides_global():
             'database': 'p_conn_database',
             'driver': 'p_conn_driver',
         },
-        'p_table',
-        'p_mode',
-        'p_bcp',
         'p_truncate',
         'p_schema_sample',
         'p_chunksize',
@@ -1099,6 +1099,9 @@ def test__get_config_upload_params_overrides_local():
         **UPLOAD_OVERRIDE_PARAMS,
     )
     assert config == (
+        'p_table',
+        'p_mode',
+        'p_bcp',
         {
             'server': 'p_conn_server',
             'user': 'p_conn_user',
@@ -1106,9 +1109,6 @@ def test__get_config_upload_params_overrides_local():
             'database': 'p_conn_database',
             'driver': 'p_conn_driver',
         },
-        'p_table',
-        'p_mode',
-        'p_bcp',
         'p_truncate',
         'p_schema_sample',
         'p_chunksize',
@@ -1123,6 +1123,9 @@ def test__get_config_upload_params_overrides_local_overrides_global():
         **UPLOAD_OVERRIDE_PARAMS,
     )
     assert config == (
+        'p_table',
+        'p_mode',
+        'p_bcp',
         {
             'server': 'p_conn_server',
             'user': 'p_conn_user',
@@ -1130,9 +1133,6 @@ def test__get_config_upload_params_overrides_local_overrides_global():
             'database': 'p_conn_database',
             'driver': 'p_conn_driver',
         },
-        'p_table',
-        'p_mode',
-        'p_bcp',
         'p_truncate',
         'p_schema_sample',
         'p_chunksize',

@@ -1,13 +1,13 @@
 upload:
+  table: 'u_table'
+  mode: 'u_mode'
+  bcp: 'u_bcp'
   conn:
     server: 'u_conn_server'
     user: 'u_conn_user'
     password: 'u_conn_password'
     database: 'u_conn_database'
     driver: 'u_conn_driver'
-  table: 'u_table'
-  mode: 'u_mode'
-  bcp: 'u_bcp'
   truncate: 'u_truncate'
   schema_sample: 'u_schema_sample'
   chunksize: 'u_chunksize'
